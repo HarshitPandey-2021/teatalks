@@ -21,8 +21,6 @@ To check if you have them, open terminal and run:
 node --version
 git --version
 
-text
-
 
 If both show version numbers, you are good.
 
@@ -31,21 +29,15 @@ If both show version numbers, you are good.
 ### Step 1 — Clone the Repository
 
 Open your terminal and run:
-git clone https://github.com/YOUR_USERNAME/teatalks.git
+git clone https://github.com/HarshitPandey-2021/teatalks.git
 cd teatalks
 
-text
-
-
-Replace `YOUR_USERNAME` with the actual GitHub username.
 
 ---
 
 ### Step 2 — Install Frontend Dependencies
 cd frontend
 npm install
-
-text
 
 
 ---
@@ -55,7 +47,6 @@ cd ..
 cd backend
 npm install
 
-text
 
 
 ---
@@ -66,7 +57,6 @@ Open a terminal window:
 cd frontend
 npm run dev
 
-text
 
 
 The app will open at **http://localhost:3000**
@@ -79,7 +69,7 @@ Open a **second** terminal window (keep the first one running):
 cd backend
 node server.js
 
-text
+
 
 
 The API will run at **http://localhost:5000**
@@ -90,6 +80,7 @@ frontend if you are working on UI pages.
 ---
 
 ## 📁 Project Structure
+
 teatalks/
 ├── frontend/ ← Next.js app (what users see)
 │ ├── src/
@@ -106,8 +97,6 @@ teatalks/
 ├── .gitignore
 └── README.md
 
-text
-
 
 ---
 
@@ -120,13 +109,11 @@ git checkout main
 git pull origin main
 git checkout -b your-name/what-you-are-building
 
-text
 
 
 Example:
 git checkout -b shakti/landing-page
 
-text
 
 
 ### When you are done:
@@ -134,12 +121,11 @@ git add .
 git commit -m "Add landing page with hero section and features"
 git push origin shakti/landing-page
 
-text
 
 
 Then go to GitHub → you will see a yellow banner → click **"Create Pull Request"**
 
-Harshit will review and merge it.
+Team Members will review and merge it.
 
 ---
 
