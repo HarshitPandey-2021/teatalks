@@ -1,65 +1,110 @@
 import Image from "next/image";
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+import SearchBar from "../components/SearchBar";
+import CategoryTabs from "../components/CategoryTabs";
+import EmptyState from "../components/EmptyState";
+import LoadingSpinner from "../components/LoadingSpinner";
+
+export default function Home(){
+
+return(
+
+<main>
+
+<section className="hero">
+
+<Image
+src="/Cup-image.png"
+fill
+priority
+alt="TeaTalks"
+/>
+
+<div className="hero-overlay"></div>
+
+<div className="hero-content">
+
+<h1>Your Campus. Your Voice. Zero Judgement</h1>
+
+<p>
+TeaTalks is an anonymous student platform where real
+campus conversations happen.
+</p>
+
+<button className="btn-primary">
+Spill the Tea ☕
+</button>
+
+</div>
+
+</section>
+
+
+<div className="page">
+
+<div className="mascot-bg"></div>
+
+<section className="section">
+
+<h2>Search Discussions</h2>
+
+<SearchBar/>
+
+</section>
+
+
+<section className="section">
+
+<h2>Categories</h2>
+
+<CategoryTabs/>
+
+</section>
+
+
+<section className="section">
+
+<h2>Why TeaTalks?</h2>
+
+<div className="grid">
+
+<div className="card">
+<h3>Anonymous Posts</h3>
+<p>Students can speak freely without identity.</p>
+</div>
+
+<div className="card">
+<h3>Campus Stories</h3>
+<p>Real hostel and classroom experiences.</p>
+</div>
+
+<div className="card">
+<h3>Professor Reviews</h3>
+<p>Honest course feedback.</p>
+</div>
+
+<div className="card">
+<h3>Community Voting</h3>
+<p>The best discussions rise to the top.</p>
+</div>
+
+</div>
+
+</section>
+
+
+<section className="section">
+<EmptyState/>
+</section>
+
+<section className="section">
+<LoadingSpinner/>
+</section>
+
+</div>
+
+</main>
+
+)
+
 }
