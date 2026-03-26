@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import CommentCard from '@/components/CommentCard'
 import CommentForm from '@/components/CommentForm'
+import ReportModal from '@/components/ReportModal'
 
 /* ─────────────── FAKE DATA ─────────────── */
 
@@ -191,6 +192,7 @@ export default function PostDetailPage() {
   const [postVote, setPostVote] = useState(null)
   const [postScore, setPostScore] = useState(post?.score || 0)
   const [copied, setCopied] = useState(false)
+    const [reportOpen, setReportOpen] = useState(false)
 
   /* ── Auth protection ── */
   useEffect(() => {
@@ -893,6 +895,34 @@ export default function PostDetailPage() {
                   share
                 </span>
               </button>
+                            <button
+                onClick={() => setReportOpen(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#9ca3af',
+                  display: 'flex',
+                  padding: '0.5rem',
+                  borderRadius: '50%',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#b41340'
+                  e.currentTarget.style.background = '#fef2f2'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#9ca3af'
+                  e.currentTarget.style.background = 'transparent'
+                }}
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: 22 }}
+                >
+                  flag
+                </span>
+              </button>
             </div>
           </div>
         </article>
@@ -991,7 +1021,15 @@ export default function PostDetailPage() {
           )}
         </section>
       </main>
-
+      {/* ═══════════ REPORT MODAL ═══════════ */}
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onSubmit={async (data) => {
+          console.log('Report submitted:', post._id, data)
+        }}
+        targetType="post"
+      />
       {/* ═══════════ COPIED TOAST ═══════════ */}
       {copied && (
         <div style={{

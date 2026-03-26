@@ -78,11 +78,11 @@ export function AuthProvider({ children }) {
 
     // Simulate: any email/password works
     const identity = generateIdentity()
-    const fakeUser = {
+       const fakeUser = {
       _id: 'user_' + Date.now(),
       email,
       ...identity,
-      role: 'user',
+      role: email.includes('admin') ? 'admin' : 'user',
       branch: 'CSE',
       year: '3rd Year',
     }
