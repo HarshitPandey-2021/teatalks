@@ -57,27 +57,23 @@ export default function PostCard({
   }
 
   const handleVote = useCallback((dir) => {
-    setLocalVote((prev) => {
-      let newVote
-      let scoreDelta = 0
+    const prev = localVote
+    let newVote, delta = 0
 
-      if (prev === dir) {
-        newVote = null
-        scoreDelta = dir === 'up' ? -1 : 1
-      } else {
-        newVote = dir
-        if (prev === null) {
-          scoreDelta = dir === 'up' ? 1 : -1
-        } else {
-          scoreDelta = dir === 'up' ? 2 : -2
-        }
-      }
+    if (prev === dir) {
+      newVote = null
+      delta = dir === 'up' ? -1 : 1
+    } else {
+      newVote = dir
+      delta = prev === null
+        ? (dir === 'up' ? 1 : -1)
+        : (dir === 'up' ? 2 : -2)
+    }
 
-      setLocalScore((s) => s + scoreDelta)
-      if (onVote) onVote(_id, newVote)
-      return newVote
-    })
-  }, [_id, onVote])
+    setLocalVote(newVote)
+    setLocalScore((s) => s + delta)
+    if (onVote) onVote(_id, newVote)
+  }, [localVote, _id, onVote])
 
   return (
        <article

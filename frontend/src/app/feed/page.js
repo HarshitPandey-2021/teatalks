@@ -335,7 +335,16 @@ export default function FeedPage() {
         @media (max-width: 1279px) {
           .xl-show { display: none !important; }
         }
-
+        .se-feed-content {
+          flex: 1;
+          min-width: 0;
+          width: 100%;
+        }
+        @media (min-width: 1024px) {
+          .se-feed-content {
+            max-width: 40rem;
+          }
+        }
         @supports (padding-bottom: env(safe-area-inset-bottom)) {
           .mob-nav { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
         }
@@ -499,7 +508,8 @@ export default function FeedPage() {
         </aside>
 
         {/* ─── MAIN FEED ─── */}
-        <section style={{ flex: 1, maxWidth: '38rem', minWidth: 0 }}>
+        {/* <section style={{ flex: 1, maxWidth: '38rem', minWidth: 0 }}> */}
+                  <section className="se-feed-content">
 
           {/* Category Tabs */}
           <div className="no-scroll" style={{
