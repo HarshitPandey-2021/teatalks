@@ -15,8 +15,14 @@ return(
 <Link href="/privacy">Privacy</Link>
 <Link href="/terms">Terms</Link>
 
-<button className="btn-outline">Log In</button>
+
+<Link href="/login">
+  <button className="btn-outline">Log In</button>
+</Link>
+
+<Link href="/signup">
 <button className="btn-primary">Sign Up</button>
+</Link> 
 
 </div>
 

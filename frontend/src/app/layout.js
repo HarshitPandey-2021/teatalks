@@ -1,27 +1,20 @@
-import "./globals.css";
-import NavBar from "../components/NavBar";
-import Footer from "../components/Footer";
+import "./globals.css"
+import LayoutShell from "../components/LayoutShell"
+import { AuthProvider } from "../context/AuthContext"
 
 export const metadata = {
-title: "TeaTalks",
-description: "Campus discussion platform",
-};
+  title: "TeaTalks",
+  description: "Campus discussion platform",
+}
 
 export default function RootLayout({ children }) {
-
-return (
-<html lang="en"  suppressHydrationWarning>
-
-<body  suppressHydrationWarning>
-
-<NavBar/>
-
-{children}
-
-<Footer/>
-
-</body>
-
-</html>
-);
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <AuthProvider>
+          <LayoutShell>{children}</LayoutShell>
+        </AuthProvider>
+      </body>
+    </html>
+  )
 }
