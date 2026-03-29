@@ -13,12 +13,6 @@ return(
 
 <section className="hero">
 
-<Image
-src="/Cup-image.png"
-fill
-priority
-alt="TeaTalks"
-/>
 
 <div className="hero-overlay"></div>
 
