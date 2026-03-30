@@ -1,15 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Lock, ArrowRight } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 
-/* ─────────────────────────────────────────
-   FAKE POSTS — exactly 3, blurred previews
-───────────────────────────────────────── */
 const POSTS = [
   {
     id: 1,
@@ -19,7 +16,7 @@ const POSTS = [
     avatar: '🦊',
     handle: 'RedFox_492',
     time: '4m ago',
-    text: 'I have been faking attendance for two months. My parents genuinely think I have a 90% record.',
+    text: 'I have been faking attendance for two months and my parents think I have 90% record.',
     likes: 247,
     replies: 38,
   },
@@ -43,13 +40,18 @@ const POSTS = [
     avatar: '🦋',
     handle: 'BluWing_203',
     time: '42m ago',
-    text: 'A prof fell asleep mid-lecture. The entire class just sat there in silence watching.',
+    text: 'A prof fell asleep mid-lecture and the entire class just sat there watching in silence.',
     likes: 512,
     replies: 94,
   },
 ]
 
-
+const DEFAULT_COLLEGES = [
+  'Lucknow University', 'IIT Kanpur', 'IIM Lucknow',
+  'Amity University Lucknow', 'BBD University', 'Integral University',
+  'SRMU Barabanki', 'AKTU Lucknow', 'City Montessori College',
+  'National PG College',
+]
 
 export default function SignupPage() {
   const [form, setForm] = useState({ college: '', email: '', password: '' })
@@ -57,38 +59,63 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState('')
-const [collegeQuery, setCollegeQuery] = useState('')
-const [showDropdown, setShowDropdown] = useState(false)
+  const [collegeQuery, setCollegeQuery] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [colleges, setColleges] = useState(DEFAULT_COLLEGES)
+  const [tickerIndex, setTickerIndex] = useState(0)
+
+  const dropdownRef = useRef(null)
   const { signup, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
-  const [colleges, setColleges] = useState([
-  "Lucknow University",
-  "IIT Kanpur",
-  "IIM Lucknow",
-  "Amity University Lucknow",
-  "BBD University",
-  "Integral University",
-  "SRMU Barabanki",
-  "AKTU Lucknow",
-  "City Montessori College",
-  "National PG College"
-])
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) router.push('/feed')
   }, [authLoading, isAuthenticated, router])
 
   useEffect(() => {
-  const close = () => setShowDropdown(false)
-  window.addEventListener("click", close)
-  return () => window.removeEventListener("click", close)
-}, [])
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
+        setShowDropdown(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [])
+
+  // Mobile ticker — cycles posts
+  useEffect(() => {
+    const t = setInterval(() => {
+      setTickerIndex((i) => (i + 1) % POSTS.length)
+    }, 3000)
+    return () => clearInterval(t)
+  }, [])
 
   const update = (e) => {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     setFieldErrors((prev) => { const c = { ...prev }; delete c[name]; return c })
   }
+
+  const selectCollege = (college) => {
+    setForm((prev) => ({ ...prev, college }))
+    setCollegeQuery(college)
+    setShowDropdown(false)
+    setFieldErrors((prev) => { const c = { ...prev }; delete c.college; return c })
+  }
+
+  const addAndSelectCollege = () => {
+    const trimmed = collegeQuery.trim()
+    if (!trimmed) return
+    setColleges((prev) => [...prev, trimmed])
+    selectCollege(trimmed)
+  }
+
+  const filteredColleges = colleges.filter((c) =>
+    c.toLowerCase().includes(collegeQuery.toLowerCase())
+  )
 
   const submit = async (e) => {
     e.preventDefault()
@@ -112,15 +139,16 @@ const [showDropdown, setShowDropdown] = useState(false)
       setLoading(false)
     }
   }
-const filteredColleges = colleges.filter(c =>
-  c.toLowerCase().includes(collegeQuery.toLowerCase())
-)
+
   if (authLoading || isAuthenticated) return null
+
+  const currentPost = POSTS[tickerIndex]
+  const isBlurred = tickerIndex !== 0 // first post readable, rest blurred
 
   return (
     <div className="tt-root">
       <style>{`
-   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600;1,700;1,800&display=swap');
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -134,7 +162,6 @@ const filteredColleges = colleges.filter(c =>
           --accent-pink: #d4437a;
           --accent-orange: #e07840;
           --border: rgba(120, 90, 60, 0.14);
-          --border-hover: rgba(120, 90, 60, 0.28);
         }
 
         html, body { height: 100%; overflow: hidden; }
@@ -145,152 +172,318 @@ const filteredColleges = colleges.filter(c =>
           display: flex;
           flex-direction: column;
           background: var(--cream);
-          font-family: 'Inter', sans-serif;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
           color: var(--warm-brown);
           overflow: hidden;
           -webkit-font-smoothing: antialiased;
         }
 
-        /* ── NAV ── */
+        /* NAV */
         .tt-nav {
           flex-shrink: 0;
           display: flex;
           align-items: center;
-          padding: 0 2.5rem;
-          height: 54px;
+          padding: 0 1.25rem;
+          height: 50px;
           border-bottom: 1px solid var(--border);
           background: rgba(253, 246, 236, 0.92);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           z-index: 10;
         }
+        @media (min-width: 768px) {
+          .tt-nav { padding: 0 2.5rem; height: 54px; }
+        }
         .tt-logo {
           font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 1.35rem;
+          font-size: 1.25rem;
           font-style: italic;
+          font-weight: 700;
           text-decoration: none;
-          letter-spacing: -0.01em;
           background: linear-gradient(135deg, #be185d, #c2410c);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
 
-        /* ── MAIN SPLIT ── */
+        /* MAIN */
         .tt-main {
           flex: 1;
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          min-height: 0;
-        }
-
-        /* ── LEFT PANEL ── */
-        .tt-left {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 2rem 3rem;
+          flex-direction: column;
+          min-height: 0;
           overflow: hidden;
         }
-        .tt-form-inner {
-          width: 100%;
-          max-width: 370px;
+        @media (min-width: 768px) {
+          .tt-main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+          }
         }
 
+     
+.tt-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+@media (min-width: 768px) {
+  .tt-left {
+    padding: 2.5rem 3rem;
+  }
+}
+  
+.tt-form-inner {
+  width: 100%;
+  max-width: 370px;
+}
+  /* MOBILE TICKER */
+.tt-ticker {
+  flex-shrink: 0;
+  position: relative;
+  width: 100%;
+  height: 72px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+@media (min-width: 768px) {
+  .tt-ticker {
+    display: none;
+  }
+}
+       .tt-ticker-card {
+  position: relative; /* changed from absolute */
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.625rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  overflow: hidden;
+  margin-bottom: 0.75rem; /* spacing between stacked cards */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05); /* subtle shadow for depth */
+  width: 100%; /* full width for responsiveness */
+  z-index: 0;
+}
+
+/* Top section with avatar, handle, tag, time */
+.tt-ticker-top {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  flex-wrap: wrap; /* allow items to wrap on small screens */
+}
+
+.tt-ticker-avatar {
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.tt-ticker-handle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--warm-brown);
+}
+
+.tt-ticker-tag {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.tt-ticker-time {
+  font-size: 0.625rem;
+  color: var(--soft-brown);
+  margin-left: auto;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* Main text section */
+.tt-ticker-text {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--medium-brown);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word; /* prevent overflow on mobile */
+}
+
+/* Optional blur overlay */
+.tt-ticker-blur {
+  filter: blur(4px);
+   opacity: 0.85;
+  user-select: none;
+}
+
+.tt-ticker-overlay {
+  position: absolute;
+  inset: 0; /* top/right/bottom/left all 0 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  font-size: 0.6rem; /* slightly bigger for readability */
+  color: rgba(190, 24, 93, 0.55); /* keep subtle pink */
+  pointer-events: none;
+  margin-top:0.7rem;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .tt-ticker-card {
+    padding: 0.5rem 0.625rem;
+    border-radius: 10px;
+  }
+
+  .tt-ticker-top {
+    gap: 0.25rem;
+  }
+
+  .tt-ticker-text {
+    -webkit-line-clamp: 3; /* allow slightly more text on small screens */
+  }
+}
+        /* HEADLINE */
         .tt-headline {
-     font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: clamp(1.75rem, 2.8vw, 2.625rem);
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 1.5rem;
           font-weight: 400;
-          line-height: 1.15;
+          line-height: 1.18;
           letter-spacing: -0.02em;
           color: var(--warm-brown);
-          margin-bottom: 0.5rem;
+          margin-bottom: 0.375rem;
+          margin-top: 2.7rem;
+        }
+        @media (min-width: 768px) {
+          .tt-headline { font-size: clamp(1.625rem, 2.6vw, 2.375rem); }
         }
         .tt-headline em {
           font-style: italic;
+          font-weight: 700;
           background: linear-gradient(135deg, #be185d 20%, #e07840 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
-        .tt-subline {
-          font-size: 0.9rem;
-          color: var(--soft-brown);
-          line-height: 1.55;
-          margin-bottom: 1.875rem;
-        }
+      .tt-subline {
+  font-size: 0.85rem;
+  color: var(--soft-brown);
+  line-height: 1.5;
+  margin-bottom: 1.375rem;
+}
+@media (min-width: 768px) {
+  .tt-subline { font-size: 0.9rem; margin-bottom: 1.625rem; }
+}
 
-        /* ── FORM ── */
+        /* FORM */
         .tt-form {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.6875rem;
         }
         .tt-field {
           display: flex;
           flex-direction: column;
-          gap: 0.35rem;
+          gap: 0.3rem;
         }
         .tt-label {
-          font-size: 0.68rem;
+          font-size: 0.675rem;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.1em;
           color: var(--medium-brown);
-          opacity: 0.65;
+          opacity: 0.6;
         }
-        .tt-input, .tt-select {
+        .tt-input {
           width: 100%;
-          padding: 0.78125rem 1rem;
+          padding: 0.75rem 0.875rem;
           background: #fff;
           border: 1px solid var(--border);
           border-radius: 10px;
           color: var(--warm-brown);
-          
           font-family: 'Inter', sans-serif;
-          font-size: 0.9375rem;
+          font-size: 16px;
           outline: none;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+          -webkit-tap-highlight-color: transparent;
         }
-        .tt-input::placeholder { color: var(--soft-brown); opacity: 0.5; }
-        .tt-input:focus, .tt-select:focus {
-          border-color: rgba(212, 67, 122, 0.4);
-          box-shadow: 0 0 0 3px rgba(212, 67, 122, 0.07);
+        .tt-input::placeholder { color: var(--soft-brown); opacity: 0.45; }
+        .tt-input:focus {
+          border-color: rgba(212, 67, 122, 0.35);
+          box-shadow: 0 0 0 3px rgba(212, 67, 122, 0.06);
           background: #fffbf8;
         }
-        .tt-input.err { border-color: rgba(220,38,38,0.4); animation: ttShake 0.3s ease; }
-        .tt-select {
-          appearance: none;
-          -webkit-appearance: none;
-          cursor: pointer;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c8270' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-          background-repeat: no-repeat;
-          background-position: right 0.875rem center;
-          padding-right: 2.25rem;
+        .tt-input.err {
+          border-color: rgba(220,38,38,0.4);
+          animation: ttShake 0.3s ease;
         }
-        .tt-select.err { border-color: rgba(220,38,38,0.4); }
         .tt-field-err {
-          font-size: 0.7rem;
+          font-size: 0.675rem;
           color: #dc2626;
-          margin-left: 0.125rem;
+          margin-left: 2px;
         }
+
+        /* DROPDOWN */
+        .tt-dropdown {
+          position: absolute;
+          top: 100%; left: 0; right: 0;
+          background: #fff;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          margin-top: 4px;
+          max-height: 160px;
+          overflow-y: auto;
+          z-index: 20;
+          box-shadow: 0 8px 24px rgba(60, 40, 20, 0.1);
+          -webkit-overflow-scrolling: touch;
+        }
+        .tt-dropdown::-webkit-scrollbar { display: none; }
+        .tt-dropdown { scrollbar-width: none; }
+        .tt-dd-item {
+          padding: 9px 12px;
+          cursor: pointer;
+          font-size: 0.85rem;
+          transition: background 0.12s;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .tt-dd-item:hover, .tt-dd-item:active { background: var(--cream-2); }
+        .tt-dd-add {
+          padding: 9px 12px;
+          cursor: pointer;
+          border-top: 1px solid var(--border);
+          font-weight: 600;
+          font-size: 0.85rem;
+          color: #be185d;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .tt-dd-add:hover { background: rgba(212, 67, 122, 0.04); }
+
+        /* PASSWORD */
         .tt-pw-wrap { position: relative; }
         .tt-pw-toggle {
           position: absolute;
-          right: 0.875rem; top: 50%;
+          right: 0.75rem; top: 50%;
           transform: translateY(-50%);
           background: none; border: none;
-          cursor: pointer;
-          color: var(--soft-brown);
-          opacity: 0.55;
-          padding: 0;
+          cursor: pointer; color: var(--soft-brown);
+          opacity: 0.5; padding: 0;
           display: flex; align-items: center;
-          transition: opacity 0.2s;
+          -webkit-tap-highlight-color: transparent;
         }
-        .tt-pw-toggle:hover { opacity: 1; }
 
-        /* ── CTA ── */
+        /* CTA */
         .tt-cta {
           width: 100%;
-          padding: 0.84375rem 1.25rem;
+          padding: 0.8125rem 1.25rem;
           background: linear-gradient(135deg, #d4437a 0%, #e07840 100%);
           color: #fff;
           border: none;
@@ -302,39 +495,45 @@ const filteredColleges = colleges.filter(c =>
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.45rem;
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          gap: 0.4rem;
+          transition: transform 0.2s, box-shadow 0.2s;
           box-shadow: 0 4px 16px rgba(212, 67, 122, 0.2);
           margin-top: 0.125rem;
+          -webkit-tap-highlight-color: transparent;
         }
-        .tt-cta:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(212, 67, 122, 0.28); }
         .tt-cta:active:not(:disabled) { transform: scale(0.97); }
-        .tt-cta:disabled { opacity: 0.48; cursor: not-allowed; }
+        .tt-cta:disabled { opacity: 0.45; cursor: not-allowed; }
+        @media (min-width: 768px) {
+          .tt-cta:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 22px rgba(212, 67, 122, 0.28);
+          }
+        }
 
         .tt-error {
-          padding: 0.6rem 0.875rem;
-          background: rgba(220,38,38,0.07);
-          border: 1px solid rgba(220,38,38,0.16);
+          padding: 0.5625rem 0.75rem;
+          background: rgba(220,38,38,0.06);
+          border: 1px solid rgba(220,38,38,0.14);
           border-radius: 8px;
           color: #b91c1c;
-          font-size: 0.8125rem;
+          font-size: 0.8rem;
           text-align: center;
         }
 
-        /* ── Bottom microcopy ── */
+        /* BOTTOM */
         .tt-bottom {
-          margin-top: 1.125rem;
+          margin-top: 0.875rem;
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.375rem;
         }
         .tt-anon-note {
           display: flex;
           align-items: flex-start;
-          gap: 0.375rem;
-          font-size: 0.76rem;
+          gap: 0.35rem;
+          font-size: 0.725rem;
           color: var(--soft-brown);
-          line-height: 1.4;
+          line-height: 1.35;
         }
         .tt-login-link {
           font-size: 0.8rem;
@@ -347,48 +546,49 @@ const filteredColleges = colleges.filter(c =>
         }
         .tt-login-link a:hover { text-decoration: underline; }
 
-        /* ── RIGHT PANEL ── */
+        /* RIGHT PANEL */
         .tt-right {
-          display: flex;
+          display: none;
           flex-direction: column;
           justify-content: center;
-          padding: 1.75rem 2.25rem;
+          padding: 1.5rem 2rem;
           background: linear-gradient(155deg, #fdf0e0 0%, #f8e7ce 55%, #fce8d8 100%);
           border-left: 1px solid var(--border);
           position: relative;
           overflow: hidden;
-          gap: 0.875rem;
+          gap: 0.75rem;
+        }
+        @media (min-width: 768px) {
+          .tt-right { display: flex; }
         }
         .tt-right::before {
           content: '';
-          position: absolute;
-          inset: 0;
+          position: absolute; inset: 0;
           background-image:
-            radial-gradient(circle at 18% 18%, rgba(212,67,122,0.07) 0%, transparent 50%),
-            radial-gradient(circle at 82% 82%, rgba(224,120,64,0.07) 0%, transparent 48%);
+            radial-gradient(circle at 18% 18%, rgba(212,67,122,0.06) 0%, transparent 50%),
+            radial-gradient(circle at 82% 82%, rgba(224,120,64,0.06) 0%, transparent 48%);
           pointer-events: none;
         }
 
-        .tt-right-header {
-          position: relative; z-index: 1; flex-shrink: 0;
-        }
+        .tt-right-header { position: relative; z-index: 1; flex-shrink: 0; }
         .tt-right-title {
           font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 1.05rem;
+          font-size: 1rem;
           font-style: italic;
+          font-weight: 600;
           color: var(--medium-brown);
-          margin-bottom: 0.3rem;
+          margin-bottom: 0.25rem;
         }
         .tt-live-row {
           display: flex;
           align-items: center;
-          gap: 0.375rem;
-          font-size: 0.7rem;
+          gap: 0.35rem;
+          font-size: 0.675rem;
           font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.1em;
           color: var(--soft-brown);
-          opacity: 0.8;
+          opacity: 0.75;
         }
         .tt-live-dot {
           width: 6px; height: 6px;
@@ -398,101 +598,97 @@ const filteredColleges = colleges.filter(c =>
           flex-shrink: 0;
         }
 
-        /* ── POSTS ── */
         .tt-posts {
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 0.625rem;
           position: relative; z-index: 1;
           flex: 1;
           justify-content: center;
         }
         .tt-post {
           background: rgba(255,255,255,0.7);
-          border: 1px solid rgba(180,140,100,0.14);
-          border-radius: 14px;
-          padding: 0.9375rem 1.0625rem;
+          border: 1px solid rgba(180,140,100,0.12);
+          border-radius: 13px;
+          padding: 0.875rem 1rem;
           position: relative;
           overflow: hidden;
           backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          box-shadow: 0 2px 10px rgba(100,70,30,0.06);
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          box-shadow: 0 2px 8px rgba(100,70,30,0.05);
+          transition: transform 0.25s, box-shadow 0.25s;
         }
-        .tt-post:hover { transform: translateY(-2px); box-shadow: 0 5px 18px rgba(100,70,30,0.1); }
-
-        /* First post readable */
+        .tt-post:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 5px 16px rgba(100,70,30,0.1);
+        }
         .tt-post:first-child .tt-post-body { filter: none; }
         .tt-post:first-child::after { display: none; }
-
-        /* 2nd & 3rd blurred */
         .tt-post:not(:first-child) .tt-post-body {
-          filter: blur(5px);
+          filter: blur(3.5px);
           user-select: none;
           pointer-events: none;
         }
         .tt-post:not(:first-child)::after {
           content: 'Join to read';
-          position: absolute;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 0.7rem;
+          position: absolute; inset: 0;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.675rem;
           font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: rgba(190,24,93,0.5);
+          color: rgba(190,24,93,0.7);
+        }
+        .tt-post:not(:first-child):hover {
+          transform: translateY(-3px) scale(1.008);
         }
 
         .tt-post-tag {
           display: inline-flex;
-          font-size: 0.6rem;
+          font-size: 0.575rem;
           font-weight: 700;
-          letter-spacing: 0.1em;
+          letter-spacing: 0.08em;
           text-transform: uppercase;
-          padding: 2px 8px;
+          padding: 2px 7px;
           border-radius: 999px;
-          margin-bottom: 0.5625rem;
+          margin-bottom: 0.5rem;
         }
         .tt-post-meta {
           display: flex;
           align-items: center;
-          gap: 0.375rem;
-          margin-bottom: 0.4375rem;
+          gap: 0.35rem;
+          margin-bottom: 0.375rem;
         }
         .tt-post-avatar {
-          width: 22px; height: 22px;
+          width: 20px; height: 20px;
           border-radius: 50%;
           background: var(--cream-2);
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px;
-          flex-shrink: 0;
+          font-size: 11px;
           border: 1px solid var(--border);
         }
         .tt-post-handle {
-          font-size: 0.75rem;
+          font-size: 0.725rem;
           font-weight: 600;
           color: var(--warm-brown);
         }
         .tt-post-time {
-          font-size: 0.68rem;
+          font-size: 0.65rem;
           color: var(--soft-brown);
           margin-left: auto;
-          opacity: 0.6;
+          opacity: 0.55;
         }
         .tt-post-text {
-          font-size: 0.8125rem;
-          line-height: 1.5;
+          font-size: 0.8rem;
+          line-height: 1.45;
           color: var(--medium-brown);
-          margin-bottom: 0.5625rem;
+          margin-bottom: 0.5rem;
         }
         .tt-post-stats {
           display: flex;
-          gap: 0.875rem;
-          font-size: 0.68rem;
+          gap: 0.75rem;
+          font-size: 0.65rem;
           color: var(--soft-brown);
-          opacity: 0.65;
+          opacity: 0.6;
         }
         .tt-post-stat {
           display: flex;
@@ -500,24 +696,22 @@ const filteredColleges = colleges.filter(c =>
           gap: 3px;
         }
 
-        /* ── Right bottom hint ── */
         .tt-right-hint {
           flex-shrink: 0;
           position: relative; z-index: 1;
           text-align: center;
-          padding: 0.6875rem 0.875rem;
-          background: rgba(255,255,255,0.45);
-          border: 1px dashed rgba(190,24,93,0.2);
+          padding: 0.625rem 0.75rem;
+          background: rgba(255,255,255,0.4);
+          border: 1px dashed rgba(190,24,93,0.18);
           border-radius: 10px;
         }
         .tt-right-hint p {
-          font-size: 0.775rem;
+          font-size: 0.75rem;
           color: var(--medium-brown);
-          line-height: 1.45;
+          line-height: 1.4;
         }
         .tt-right-hint strong { color: #be185d; }
 
-        /* ── SPINNER ── */
         .tt-spin {
           width: 15px; height: 15px;
           border: 2px solid rgba(255,255,255,0.35);
@@ -527,7 +721,6 @@ const filteredColleges = colleges.filter(c =>
           flex-shrink: 0;
         }
 
-        /* ── ANIMATIONS ── */
         @keyframes ttShake {
           0%,100% { transform: translateX(0); }
           25% { transform: translateX(-4px); }
@@ -538,138 +731,114 @@ const filteredColleges = colleges.filter(c =>
           50% { opacity: 0.3; transform: scale(0.6); }
         }
         @keyframes ttRotate { to { transform: rotate(360deg); } }
-
-        /* ═══════════════════════
-           MOBILE
-        ═══════════════════════ */
-        @media (max-width: 767px) {
-          html, body { overflow: auto; }
-          .tt-root { height: auto; min-height: 100vh; overflow: auto; }
-          .tt-nav { padding: 0 1.25rem; }
-          .tt-main { grid-template-columns: 1fr; }
-          .tt-left { padding: 1.75rem 1.25rem 1.25rem; align-items: flex-start; }
-          .tt-form-inner { max-width: 100%; }
-          .tt-headline { font-size: 1.75rem; }
-          .tt-subline { font-size: 0.875rem; margin-bottom: 1.375rem; }
-          .tt-right {
-            padding: 1.375rem 1.25rem 2rem;
-            border-left: none;
-            border-top: 1px solid var(--border);
-            gap: 0.75rem;
-          }
-          .tt-posts { gap: 0.625rem; }
-          .tt-post { padding: 0.8125rem 0.9375rem; }
-          .tt-right-hint { display: none; }
-        }
       `}</style>
 
-      {/* ── NAV ── */}
       <nav className="tt-nav">
         <Link href="/" className="tt-logo">TeaTalks</Link>
       </nav>
 
-      {/* ── MAIN ── */}
       <main className="tt-main">
-
-        {/* ════════════ LEFT — FORM ════════════ */}
         <div className="tt-left">
           <motion.div
             className="tt-form-inner"
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+            transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
           >
+            {/* ── MOBILE TICKER ── */}
+            <div className="tt-ticker">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={tickerIndex}
+                  className="tt-ticker-card"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  <div className="tt-ticker-top">
+                    <span className="tt-ticker-avatar">{currentPost.avatar}</span>
+                    <span className="tt-ticker-handle">{currentPost.handle}</span>
+                    <span
+                      className="tt-ticker-tag"
+                      style={{ background: currentPost.tagBg, color: currentPost.tagColor }}
+                    >
+                      {currentPost.tag}
+                    </span>
+                    <span className="tt-ticker-time">{currentPost.time}</span>
+                  </div>
+                  <p className={`tt-ticker-text ${isBlurred ? 'tt-ticker-blur' : ''}`}>
+                    {currentPost.text}
+                  </p>
+                  {isBlurred && (
+                    <div className="tt-ticker-overlay">Sign up to read</div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* ── HEADLINE ── */}
             <h1 className="tt-headline">
               Your campus has<br />
               <em>secrets worth reading.</em>
             </h1>
             <p className="tt-subline">
-              Anonymous confessions, unpopular opinions &amp; campus drama — real, raw, and nobody knows it's you.
+              Anonymous confessions, opinions &amp; campus tea — real, raw, and nobody knows it's you.
             </p>
 
+            {/* ── FORM ── */}
             <form onSubmit={submit} className="tt-form" noValidate>
-              {error && <div className="tt-error">{error}</div>}
+              {error && (
+                <motion.div
+                  className="tt-error"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  {error}
+                </motion.div>
+              )}
 
-              {/* College */}
               <div className="tt-field">
-  <label className="tt-label">Your Campus</label>
+                <label className="tt-label">Your Campus</label>
+                <div style={{ position: 'relative' }} ref={dropdownRef}>
+                  <input
+                    type="text"
+                    placeholder="Search your college..."
+                    value={collegeQuery}
+                    onChange={(e) => {
+                      setCollegeQuery(e.target.value)
+                      setShowDropdown(true)
+                      if (form.college) setForm((p) => ({ ...p, college: '' }))
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    autoComplete="off"
+                    className={`tt-input ${fieldErrors.college ? 'err' : ''}`}
+                  />
+                  {showDropdown && (
+                    <div className="tt-dropdown">
+                      {filteredColleges.map((c) => (
+                        <div key={c} className="tt-dd-item" onClick={() => selectCollege(c)}>
+                          {c}
+                        </div>
+                      ))}
+                      {collegeQuery.trim() &&
+                        !filteredColleges.some(
+                          (c) => c.toLowerCase() === collegeQuery.trim().toLowerCase()
+                        ) && (
+                          <div className="tt-dd-add" onClick={addAndSelectCollege}>
+                            + Add &ldquo;{collegeQuery.trim()}&rdquo;
+                          </div>
+                        )}
+                    </div>
+                  )}
+                </div>
+                {fieldErrors.college && <span className="tt-field-err">{fieldErrors.college}</span>}
+              </div>
 
-  <div style={{ position: "relative" }}>
-    <input
-      type="text"
-      placeholder="Search your college..."
-      value={collegeQuery}
-      onChange={(e) => {
-        setCollegeQuery(e.target.value)
-        setShowDropdown(true)
-      }}
-      onFocus={() => setShowDropdown(true)}
-      className={`tt-input ${fieldErrors.college ? 'err' : ''}`}
-    />
-
-    {showDropdown && (
-      <div
-        style={{
-          position: "absolute",
-          top: "100%",
-          left: 0,
-          right: 0,
-          background: "#fff",
-          border: "1px solid var(--border)",
-          borderRadius: "10px",
-          marginTop: "4px",
-          maxHeight: "180px",
-          overflowY: "auto",
-          zIndex: 20
-        }}
-      >
-        {filteredColleges.map((college) => (
-          <div
-            key={college}
-            onClick={() => {
-              setForm(prev => ({ ...prev, college }))
-              setCollegeQuery(college)
-              setShowDropdown(false)
-            }}
-            style={{ padding: "10px 12px", cursor: "pointer" }}
-          >
-            {college}
-          </div>
-        ))}
-
-        {/* Add new college option */}
-        {collegeQuery && !filteredColleges.includes(collegeQuery) && (
-          <div
-            onClick={() => {
-              setColleges(prev => [...prev, collegeQuery])
-              setForm(prev => ({ ...prev, college: collegeQuery }))
-              setShowDropdown(false)
-            }}
-            style={{
-              padding: "10px 12px",
-              cursor: "pointer",
-              borderTop: "1px solid var(--border)",
-              fontWeight: 600
-            }}
-          >
-            + Add "{collegeQuery}"
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-
-  {fieldErrors.college && (
-    <span className="tt-field-err">{fieldErrors.college}</span>
-  )}
-</div>
-
-
-              {/* Email */}
               <div className="tt-field">
-                <label className="tt-label" htmlFor="email">Email</label>
+                <label className="tt-label" htmlFor="su-email">Email</label>
                 <input
-                  id="email" type="email" name="email"
+                  id="su-email" type="email" name="email"
                   value={form.email} onChange={update}
                   placeholder="you@anywhere.com"
                   autoComplete="email"
@@ -678,24 +847,22 @@ const filteredColleges = colleges.filter(c =>
                 {fieldErrors.email && <span className="tt-field-err">{fieldErrors.email}</span>}
               </div>
 
-              {/* Password */}
               <div className="tt-field">
-                <label className="tt-label" htmlFor="password">Password</label>
+                <label className="tt-label" htmlFor="su-pw">Password</label>
                 <div className="tt-pw-wrap">
                   <input
-                    id="password" name="password"
+                    id="su-pw" name="password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password} onChange={update}
                     placeholder="Min. 6 characters"
                     autoComplete="new-password"
                     className={`tt-input ${fieldErrors.password ? 'err' : ''}`}
-                    style={{ paddingRight: '2.625rem' }}
+                    style={{ paddingRight: '2.5rem' }}
                   />
                   <button
-                    type="button" tabIndex={-1}
-                    className="tt-pw-toggle"
+                    type="button" tabIndex={-1} className="tt-pw-toggle"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? 'Hide' : 'Show'}
                   >
                     {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -703,7 +870,6 @@ const filteredColleges = colleges.filter(c =>
                 {fieldErrors.password && <span className="tt-field-err">{fieldErrors.password}</span>}
               </div>
 
-              {/* CTA */}
               <button type="submit" className="tt-cta" disabled={loading}>
                 {loading ? (
                   <><span className="tt-spin" /> Creating your identity…</>
@@ -715,18 +881,19 @@ const filteredColleges = colleges.filter(c =>
 
             <div className="tt-bottom">
               <div className="tt-anon-note">
-                <Lock size={11} strokeWidth={2.5} style={{ color: '#be185d', opacity: 0.65, flexShrink: 0, marginTop: 2 }} />
-                <span>Your real name is never shown. You post behind a random animal persona.</span>
+                <Lock size={11} strokeWidth={2.5}
+                  style={{ color: '#be185d', opacity: 0.6, flexShrink: 0, marginTop: 1 }}
+                />
+                <span>Your identity is never shown. You post behind a random anonymous persona.</span>
               </div>
               <p className="tt-login-link">
-                Already have an identity?{' '}
-                <Link href="/login">Sign in here</Link>
+                Already have an identity? <Link href="/login">Sign in here</Link>
               </p>
             </div>
           </motion.div>
         </div>
 
-        {/* ════════════ RIGHT — PREVIEW ════════════ */}
+        {/* ══ RIGHT — DESKTOP POSTS ══ */}
         <div className="tt-right">
           <div className="tt-right-header">
             <p className="tt-right-title">What's happening on campus</p>
@@ -739,14 +906,12 @@ const filteredColleges = colleges.filter(c =>
           <div className="tt-posts">
             {POSTS.map((post, i) => (
               <motion.div
-                key={post.id}
-                className="tt-post"
+                key={post.id} className="tt-post"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.15 + i * 0.1, ease: [0.4, 0, 0.2, 1] }}
+                transition={{ duration: 0.4, delay: 0.15 + i * 0.1 }}
               >
-                <div
-                  className="tt-post-tag"
+                <div className="tt-post-tag"
                   style={{ background: post.tagBg, color: post.tagColor, border: `1px solid ${post.tagColor}20` }}
                 >
                   {post.tag}
@@ -763,7 +928,7 @@ const filteredColleges = colleges.filter(c =>
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                       </svg>
-                      {post.likes.toLocaleString()}
+                      {post.likes}
                     </span>
                     <span className="tt-post-stat">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -778,10 +943,9 @@ const filteredColleges = colleges.filter(c =>
           </div>
 
           <div className="tt-right-hint">
-            <p><strong>47 more posts</strong> from your campus today. Sign up to read everything — free, forever.</p>
+            <p><strong>47 more posts</strong> from your campus today. Join to read everything.</p>
           </div>
         </div>
-
       </main>
     </div>
   )
