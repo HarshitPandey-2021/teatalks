@@ -1,6 +1,7 @@
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const detectToxicity = require('../services/toxicityService').detectToxicity;
 
 // REGISTER
 exports.register = async (req, res) => {
@@ -74,3 +75,27 @@ exports.login = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.createPost= async (req, res) => {
+   try {
+    const { text } = req.body;
+
+    const toxicity = await detectToxicity(text);
+
+    if (toxicity.isToxic) {
+      return res.status(400).json({
+        message: "Toxic content detected",
+        toxicity
+      });
+    }
+
+    // continue normal logic
+    res.json({
+      message: "Post created successfully",
+      toxicity
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
