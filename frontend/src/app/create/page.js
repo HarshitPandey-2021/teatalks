@@ -1,1062 +1,825 @@
+// app/create/page.jsx
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-/* ─────────────────── DATA ─────────────────── */
+import usePosts from '@/store/usePost'
 
 const CATEGORIES = [
-  { key: 'academic', label: 'Academic', icon: 'school' },
-  { key: 'professor-review', label: 'Professor Review', icon: 'rate_review' },
-  { key: 'hostel-life', label: 'Hostel Life', icon: 'apartment' },
-  { key: 'rants', label: 'Rants & Opinions', icon: 'forum' },
-  { key: 'questions', label: 'Questions', icon: 'quiz' },
-  { key: 'lost-found', label: 'Lost & Found', icon: 'search_check' },
-  { key: 'polls', label: 'Polls', icon: 'poll' },
-  { key: 'memes', label: 'Memes & Fun', icon: 'celebration' },
-  { key: 'general', label: 'General', icon: 'grid_view' },
-  { key: 'campus-news', label: 'Campus News', icon: 'newspaper' },
+  { key: 'academic', label: 'Academic', icon: 'school', feedLabel: 'Academic' },
+  { key: 'professor-review', label: 'Prof Review', icon: 'rate_review', feedLabel: 'Reviews' },
+  { key: 'hostel-life', label: 'Hostel Life', icon: 'apartment', feedLabel: 'Hostel' },
+  { key: 'rants', label: 'Rants', icon: 'forum', feedLabel: 'Rants' },
+  { key: 'questions', label: 'Questions', icon: 'quiz', feedLabel: 'General' },
+  { key: 'lost-found', label: 'Lost & Found', icon: 'search_check', feedLabel: 'General' },
+  { key: 'polls', label: 'Polls', icon: 'poll', feedLabel: 'General' },
+  { key: 'memes', label: 'Memes & Fun', icon: 'celebration', feedLabel: 'General' },
+  { key: 'general', label: 'General', icon: 'grid_view', feedLabel: 'General' },
+  { key: 'campus-news', label: 'Campus News', icon: 'newspaper', feedLabel: 'General' },
 ]
+
+const CATEGORY_TO_FEED = {
+  'academic': 'Academic',
+  'professor-review': 'Reviews',
+  'hostel-life': 'Hostel',
+  'rants': 'Rants',
+  'questions': 'General',
+  'lost-found': 'General',
+  'polls': 'General',
+  'memes': 'General',
+  'general': 'General',
+  'campus-news': 'General',
+}
 
 const DURATIONS = ['6h', '12h', '24h', '48h']
-
 const MAX_CHARS = 1000
-
-const MOBILE_NAV = [
-  { icon: 'home', label: 'Home', href: '/feed', active: false },
-  { icon: 'explore', label: 'Explore', href: '#', active: false },
-  { icon: 'add_circle', label: 'Create', href: '/create', active: true },
-  { icon: 'poll', label: 'Polls', href: '#', active: false },
-  { icon: 'person', label: 'Profile', href: '#', active: false },
-]
-
-/* ─────────────────── COMPONENT ─────────────────── */
+const MAX_TAGS = 5
+const MAX_IMAGES = 4
+const MAX_POLL_OPTIONS = 6
+const MIN_CHARS = 10
 
 export default function CreatePostPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
+  const fileRef = useRef(null)
+  const addPost = usePosts((state) => state.addPost)
+
+  const [cat, setCat] = useState('academic')
+  const [body, setBody] = useState('')
+  const [tags, setTags] = useState([])
+  const [tagIn, setTagIn] = useState('')
+  const [images, setImages] = useState([])
+  const [pollOn, setPollOn] = useState(false)
+  const [pollOpts, setPollOpts] = useState(['', ''])
+  const [pollDur, setPollDur] = useState('24h')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [success, setSuccess] = useState('')
+  const [tagAnim, setTagAnim] = useState('')
+  const [imgAnim, setImgAnim] = useState('')
+  const [shake, setShake] = useState(false)
+  const [tagWarn, setTagWarn] = useState('')
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login')
-    }
+    if (!authLoading && !isAuthenticated) router.push('/login')
   }, [authLoading, isAuthenticated, router])
 
-  const [activeCategory, setActiveCategory] = useState('academic')
-  const [body, setBody] = useState('')
-  const [tags, setTags] = useState(['DBMS', 'Hostel3'])
-  const [tagInput, setTagInput] = useState('')
-  const [images, setImages] = useState([
-    {
-      id: 'demo',
-      url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDBJ9UN81ncgvcr_EpGcQL7F7rAX7xcb1X2hT6gizOfXrD1OlEi_eSh-9tKdfvupsM4Jw3xgXDOPO6q_lGXLGgJIKZJ1PrbDYU-1Rd9DP7enUxjrT3UaWhUOzxSuNxufes0TR4Dgw3_CS7yLmaD_lW9WkiOC_Jqr8fLfjPgU5urShshftLT-ht1quXCiuqZrtCJK3N-6WYWfJwlJkwd2ttXCOw-5Ra9OGlOJ2u51e-_FglSIle2O-D1XQdIC6rIHJbLdSWWkwqMnlum',
-    },
-  ])
-  const [pollEnabled, setPollEnabled] = useState(true)
-  const [pollOptions, setPollOptions] = useState(['', ''])
-  const [pollDuration, setPollDuration] = useState('24h')
-  const [textareaFocused, setTextareaFocused] = useState(false)
-  const fileInputRef = useRef(null)
-
-  /* ── Handlers ── */
-
-  const handleTagKeyDown = useCallback(
-    (e) => {
-      if (e.key === 'Enter' && tagInput.trim()) {
-        e.preventDefault()
-        const cleaned = tagInput.trim().replace(/^#/, '')
-        if (cleaned && !tags.includes(cleaned)) {
-          setTags((prev) => [...prev, cleaned])
-        }
-        setTagInput('')
-      }
-    },
-    [tagInput, tags],
-  )
-
-  const removeTag = useCallback((tag) => {
-    setTags((prev) => prev.filter((t) => t !== tag))
-  }, [])
-
-  const removeImage = useCallback((id) => {
-    setImages((prev) => prev.filter((img) => img.id !== id))
-  }, [])
-
-  const handleImageUpload = useCallback(() => {
-    fileInputRef.current?.click()
-  }, [])
-
-  const onFileChange = useCallback((e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setImages((prev) => [...prev, { id: Date.now().toString(), url }])
-    e.target.value = ''
-  }, [])
-
-  const addPollOption = useCallback(() => {
-    setPollOptions((prev) => [...prev, ''])
-  }, [])
-
-  const updatePollOption = useCallback((idx, value) => {
-    setPollOptions((prev) => {
-      const copy = [...prev]
-      copy[idx] = value
-      return copy
-    })
-  }, [])
-  const [submitLoading, setSubmitLoading] = useState(false)
-  const [submitError, setSubmitError] = useState('')
-
-  const handleSubmit = useCallback(async () => {
-    // ── Validation ──
-    if (!body.trim() || body.trim().length < 10) {
-      setSubmitError('Write at least 10 characters')
-      return
+  useEffect(() => {
+    if (err) {
+      const t = setTimeout(() => setErr(''), 4000)
+      return () => clearTimeout(t)
     }
-    if (pollEnabled) {
-      const filledOptions = pollOptions.filter((o) => o.trim())
-      if (filledOptions.length < 2) {
-        setSubmitError('Polls need at least 2 filled options')
+  }, [err])
+
+  useEffect(() => {
+    if (tagWarn) {
+      const t = setTimeout(() => setTagWarn(''), 2500)
+      return () => clearTimeout(t)
+    }
+  }, [tagWarn])
+
+  useEffect(() => {
+    if (success) {
+      const t = setTimeout(() => setSuccess(''), 2000)
+      return () => clearTimeout(t)
+    }
+  }, [success])
+
+  const charPercent = (body.length / MAX_CHARS) * 100
+  const charColor = charPercent > 90 ? '#dc2626' : charPercent > 70 ? '#f59e0b' : '#b00d6a'
+
+  const triggerShake = () => {
+    setShake(true)
+    setTimeout(() => setShake(false), 500)
+  }
+
+  const tagKey = useCallback((e) => {
+    if (e.key === 'Enter' && tagIn.trim()) {
+      e.preventDefault()
+      if (tags.length >= MAX_TAGS) {
+        setTagWarn(`Max ${MAX_TAGS} tags allowed`)
         return
       }
+      const c = tagIn.trim().replace(/^#/, '').replace(/[^a-zA-Z0-9_-]/g, '')
+      if (!c) return
+      if (tags.includes(c)) {
+        setTagWarn('Tag already added')
+        return
+      }
+      setTags(p => [...p, c])
+      setTagIn('')
+      setTagAnim(c)
+      setTimeout(() => setTagAnim(''), 400)
+    }
+  }, [tagIn, tags])
+
+  const onFile = useCallback((e) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    if (images.length >= MAX_IMAGES) {
+      setErr(`Max ${MAX_IMAGES} images allowed`)
+      e.target.value = ''
+      return
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setErr('Image must be under 5MB')
+      e.target.value = ''
+      return
+    }
+    if (!f.type.startsWith('image/')) {
+      setErr('Only image files are allowed')
+      e.target.value = ''
+      return
+    }
+    const newId = Date.now().toString()
+    setImages(p => [...p, { id: newId, url: URL.createObjectURL(f), file: f }])
+    setImgAnim(newId)
+    setTimeout(() => setImgAnim(''), 500)
+    e.target.value = ''
+  }, [images])
+
+  const validate = useCallback(() => {
+    if (!body.trim()) {
+      setErr('Your post can\'t be empty ✍️')
+      triggerShake()
+      return false
+    }
+    if (body.trim().length < MIN_CHARS) {
+      setErr(`Write at least ${MIN_CHARS} characters to share your thought`)
+      triggerShake()
+      return false
+    }
+    if (pollOn) {
+      const filled = pollOpts.filter(o => o.trim())
+      if (filled.length < 2) {
+        setErr('Polls need at least 2 options filled')
+        triggerShake()
+        return false
+      }
+      const unique = new Set(filled.map(o => o.trim().toLowerCase()))
+      if (unique.size !== filled.length) {
+        setErr('Poll options must be unique')
+        triggerShake()
+        return false
+      }
+    }
+    return true
+  }, [body, pollOn, pollOpts])
+
+  const submit = useCallback(async () => {
+    if (!validate()) return
+    setErr('')
+    setLoading(true)
+    await new Promise(r => setTimeout(r, 1200))
+
+    const feedCategory = CATEGORY_TO_FEED[cat] || 'General'
+    const filledPollOpts = pollOpts.filter(o => o.trim()).map(o => o.trim())
+
+    const newPost = {
+      _id: Date.now().toString(),
+      anonymousName: user?.anonymousName || 'Anonymous',
+      anonymousEmoji: user?.anonymousEmoji || '🎭',
+      category: feedCategory,
+      text: body.trim(),
+      tags: [...tags],
+      score: 0,
+      commentCount: 0,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+      userVote: null,
+      imageUrl: images.length > 0 ? images[0].url : null,
+      ...(pollOn && filledPollOpts.length >= 2
+        ? {
+            poll: {
+              options: filledPollOpts,
+              votes: filledPollOpts.map(() => 0),
+              duration: pollDur,
+              totalVotes: 0,
+              userVoted: null,
+            },
+          }
+        : {}),
     }
 
-    setSubmitError('')
-    setSubmitLoading(true)
+    addPost(newPost)
 
-    /*
-    ┌─────────────────────────────────────────────────┐
-    │  REAL API — uncomment when backend is ready     │
-    │                                                 │
-    │  import api from '@/lib/axios'                  │
-    │                                                 │
-    │  const res = await api.post('/posts', {         │
-    │    category: activeCategory,                    │
-    │    text: body,                                  │
-    │    tags,                                        │
-    │    isPoll: pollEnabled,                         │
-    │    pollOptions: pollEnabled                     │
-    │      ? pollOptions.filter(o => o.trim())        │
-    │          .map(text => ({ text, votes: [] }))    │
-    │      : undefined,                               │
-    │    pollEndTime: pollEnabled                     │
-    │      ? new Date(Date.now() +                   │
-    │          parseInt(pollDuration) * 3600000)      │
-    │      : undefined,                               │
-    │  })                                             │
-    │  router.push('/feed')                           │
-    └─────────────────────────────────────────────────┘
-    */
-
-    // ── FAKE — simulate post creation ──
-    await new Promise((r) => setTimeout(r, 800))
-    console.log('Post created:', {
-      category: activeCategory,
-      body,
-      tags,
-      images: images.map((i) => i.url),
-      poll: pollEnabled
-        ? { options: pollOptions, duration: pollDuration }
-        : null,
-    })
-    setSubmitLoading(false)
-    router.push('/feed')
-  }, [activeCategory, body, tags, images, pollEnabled, pollOptions, pollDuration, router])
-
+    setSuccess('Posted successfully! 🎉')
+    setLoading(false)
+    setTimeout(() => router.push('/feed'), 1000)
+  }, [cat, body, tags, images, pollOn, pollOpts, pollDur, router, validate, user, addPost])
 
   if (authLoading || !isAuthenticated) {
     return (
-      <div style={{
-        minHeight: '100vh', background: '#fff7ed',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          width: 40, height: 40,
-          border: '3px solid #eae1d5',
-          borderTopColor: '#ec4899',
-          borderRadius: '50%',
-          animation: 'spin 0.6s linear infinite',
-        }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(180deg, #fdf6ee 0%, #f8f0e5 100%)' }}>
+        <div style={{ width: 44, height: 44, border: '3px solid #eae1d5', borderTopColor: '#b00d6a', borderRadius: '50%', animation: 'tt-spin 0.6s linear infinite' }} />
       </div>
     )
   }
-  
+
   return (
-    <div className="se-create">
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        .se-create {
-          min-height: 100vh;
-          min-height: 100dvh;
-          background: #fff7ed;
-          font-family: 'Inter', sans-serif;
-          color: #322e28;
-          -webkit-font-smoothing: antialiased;
-          padding-bottom: 8rem;
+    <>
+      <style jsx>{`
+        @keyframes tt-pop-in {
+          0% { transform: scale(0.3); opacity: 0; }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); opacity: 1; }
         }
-
-        ::selection { background: #ff6daf; color: #4b002a; }
-
-        .material-symbols-outlined {
-          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        @keyframes tt-fade-up {
+          0% { transform: translateY(12px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
         }
-        .mat-fill {
-          font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        @keyframes tt-slide-in {
+          0% { transform: translateX(-16px); opacity: 0; }
+          100% { transform: translateX(0); opacity: 1; }
         }
-
-        .sunset-text {
-          background: linear-gradient(135deg, #ec4899 0%, #fb923c 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+        @keyframes tt-shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+          20%, 40%, 60%, 80% { transform: translateX(4px); }
         }
-
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e4dccf; border-radius: 10px; }
-
-        .se-textarea {
-          width: 100%;
-          min-height: 220px;
-          background: #f8f0e5;
-          border: none;
-          border-radius: 1rem;
-          padding: 1.5rem;
-          font-family: 'Manrope', sans-serif;
-          font-size: 1.125rem;
-          color: #322e28;
-          outline: none;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          resize: none;
+        @keyframes tt-img-in {
+          0% { transform: scale(0.5) rotate(-8deg); opacity: 0; }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
         }
-        .se-textarea::placeholder { color: #7b766e; }
-        .se-textarea:focus {
-          box-shadow: 0 0 0 2px rgba(176, 13, 106, 0.2);
+        @keyframes tt-pulse-ring {
+          0% { box-shadow: 0 0 0 0 rgba(176,13,106,0.3); }
+          70% { box-shadow: 0 0 0 8px rgba(176,13,106,0); }
+          100% { box-shadow: 0 0 0 0 rgba(176,13,106,0); }
         }
-
-        .se-tag-input {
-          width: 100%;
-          background: #f8f0e5;
-          border: none;
-          border-radius: 0.75rem;
-          padding: 0.75rem 2.5rem 0.75rem 1rem;
-          font-size: 0.875rem;
-          color: #322e28;
-          outline: none;
-          transition: all 0.3s;
+        @keyframes tt-success-in {
+          0% { transform: translateY(-20px) scale(0.9); opacity: 0; }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
         }
-        .se-tag-input:focus {
-          box-shadow: 0 0 0 2px rgba(176, 13, 106, 0.2);
+        @keyframes tt-warn-in {
+          0% { transform: translateY(8px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
         }
-        .se-tag-input::placeholder { color: #7b766e; }
-
-        .se-poll-input {
-          width: 100%;
-          background: #ffffff;
-          border: none;
-          border-radius: 0.75rem;
-          padding: 0.75rem 1rem;
-          font-size: 0.875rem;
-          color: #322e28;
-          outline: none;
-          transition: all 0.3s;
+        .tt-create-textarea:focus {
+          box-shadow: 0 0 0 2px rgba(176,13,106,0.15), 0 4px 16px rgba(176,13,106,0.06) !important;
         }
-        .se-poll-input:focus {
-          box-shadow: 0 0 0 2px rgba(176, 13, 106, 0.2);
+        .tt-cat-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
         }
-
-        .ping-anim {
-          animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        .tt-cat-btn:active {
+          transform: translateY(0px) scale(0.97);
         }
-        @keyframes ping {
-          75%, 100% { transform: scale(2); opacity: 0; }
+        .tt-img-thumb:hover {
+          transform: scale(1.05);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.12);
         }
-
-        .mob-nav-create {
-          position: fixed; bottom: 0; left: 0; right: 0;
-          z-index: 50;
-          display: flex; justify-content: space-around; align-items: flex-end;
-          padding: 0.75rem 1.5rem 1.5rem;
-          background: rgba(253, 245, 235, 0.8);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border-top-left-radius: 1.5rem;
-          border-top-right-radius: 1.5rem;
-          box-shadow: 0 -20px 40px rgba(50, 46, 40, 0.06);
+        .tt-add-img-btn:hover {
+          border-color: #b00d6a !important;
+          color: #b00d6a !important;
+          background: rgba(176,13,106,0.03) !important;
         }
-
-        @media (min-width: 768px) {
-          .md-hide { display: none !important; }
-          .md-show { display: flex !important; }
-          .md-grid-2 { grid-template-columns: 1fr 1fr !important; }
-          .md-row { flex-direction: row !important; }
-          .md-w-auto { width: auto !important; }
-          .md-px { padding-left: 2rem !important; padding-right: 2rem !important; }
-          .md-p-10 { padding: 2.5rem !important; }
-          .md-text-left { text-align: left !important; }
-          .md-text-5xl { font-size: 3rem !important; }
+        .tt-submit-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 32px rgba(176,13,106,0.3) !important;
         }
-
-        @media (max-width: 767px) {
-          .md-show { display: none !important; }
+        .tt-submit-btn:active:not(:disabled) {
+          transform: translateY(0px) scale(0.98);
         }
-
-        @media (min-width: 640px) {
-          .sm-grid-3 { grid-template-columns: repeat(3, 1fr) !important; }
+        .tt-poll-opt:focus {
+          box-shadow: 0 0 0 2px rgba(176,13,106,0.12) !important;
+          border: 1px solid rgba(176,13,106,0.2) !important;
         }
-
-        @media (min-width: 1024px) {
-          .lg-grid-5 { grid-template-columns: repeat(5, 1fr) !important; }
+        .tt-tag-input:focus {
+          box-shadow: 0 0 0 2px rgba(176,13,106,0.12) !important;
         }
-
-        @supports (padding-bottom: env(safe-area-inset-bottom)) {
-          .mob-nav-create { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+        .tt-dur-btn:hover {
+          transform: scale(1.05);
+        }
+        .tt-remove-tag:hover {
+          background: rgba(176,13,106,0.15) !important;
+        }
+        @media (max-width: 480px) {
+          .tt-cat-grid {
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 0.375rem !important;
+          }
+          .tt-cat-btn {
+            padding: 0.625rem 0.25rem !important;
+          }
+          .tt-cat-label {
+            font-size: 0.5625rem !important;
+          }
         }
       `}</style>
 
-      {/* ═══════════ TOP NAV ═══════════ */}
-      <nav style={{
-        position: 'fixed', top: 0, width: '100%', zIndex: 50,
-        background: 'rgba(253, 245, 235, 0.8)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #fdf6ee 0%, #f8f0e5 50%, #fdf6ee 100%)',
+        paddingBottom: 'env(safe-area-inset-bottom, 20px)',
       }}>
         <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '1rem 2rem',
-          maxWidth: '80rem', margin: '0 auto',
+          maxWidth: 560,
+          margin: '0 auto',
+          padding: '1rem',
+          paddingTop: 'max(1rem, env(safe-area-inset-top, 1rem))',
         }}>
-          <Link href="/feed" style={{ textDecoration: 'none' }}>
-            <span style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 900, fontSize: '1.5rem',
-              background: 'linear-gradient(to right, #b00d6a, #904800)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>
-              TeaTalks
-            </span>
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            <button style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#322e28', opacity: 0.7, display: 'flex',
-              transition: 'opacity 0.2s',
-            }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.7')}
-            >
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
-            <button style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#322e28', opacity: 0.7, display: 'flex',
-              transition: 'opacity 0.2s',
-            }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = '0.7')}
-            >
-              <span className="material-symbols-outlined">account_circle</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* ═══════════ MAIN CONTENT ═══════════ */}
-      <main style={{
-        paddingTop: '6rem',
-        paddingLeft: '1rem', paddingRight: '1rem',
-        maxWidth: '56rem', margin: '0 auto',
-      }} className="md-px">
-
-        <div className="md-p-10" style={{
-          background: '#ffffff',
-          borderRadius: '1.5rem',
-          boxShadow: '0 20px 40px rgba(50, 46, 40, 0.06)',
-          padding: '1.5rem',
-        }}>
-
-          {/* ── Header ── */}
-          <header className="md-text-left" style={{
-            marginBottom: '2.5rem',
-            textAlign: 'center',
-          }}>
-            <h1 className="md-text-5xl" style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontSize: '2.25rem',
-              fontWeight: 800,
-              letterSpacing: '-0.025em',
-              background: 'linear-gradient(to right, #ec4899, #b00d6a)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              marginBottom: '0.5rem',
-            }}>
-              Share a Thought
-            </h1>
-            <p style={{
-              color: '#5f5b53',
-              fontWeight: 500,
-              opacity: 0.8,
-            }}>
-              What's the buzz on campus today?
-            </p>
-          </header>
-
-          {/* ── Category Grid ── */}
-          <section style={{ marginBottom: '2.5rem' }}>
-            <label style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 700,
-              fontSize: '0.875rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              color: '#b00d6a',
-              marginBottom: '1rem',
-              display: 'block',
-            }}>
-              Select Category
-            </label>
-            <div className="sm-grid-3 lg-grid-5" style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '0.75rem',
-            }}>
-              {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat.key
-                return (
-                  <button
-                    key={cat.key}
-                    onClick={() => setActiveCategory(cat.key)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '1rem',
-                      borderRadius: '1rem',
-                      border: isActive ? '2px solid #b00d6a' : '2px solid transparent',
-                      background: isActive ? 'rgba(176, 13, 106, 0.05)' : '#f8f0e5',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s',
-                      WebkitTapHighlightColor: 'transparent',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) e.currentTarget.style.background = '#e4dccf'
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) e.currentTarget.style.background = '#f8f0e5'
-                    }}
-                  >
-                    <span
-                      className={`material-symbols-outlined ${isActive ? 'mat-fill' : ''}`}
-                      style={{
-                        fontSize: '1.875rem',
-                        marginBottom: '0.5rem',
-                        color: isActive ? '#b00d6a' : '#904800',
-                      }}
-                    >
-                      {cat.icon}
-                    </span>
-                    <span style={{
-                      fontSize: '0.6875rem',
-                      fontWeight: isActive ? 700 : 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '-0.01em',
-                      color: isActive ? '#b00d6a' : '#5f5b53',
-                    }}>
-                      {cat.label}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-
-          {/* ── Content Textarea ── */}
-          <section style={{ marginBottom: '2rem', position: 'relative' }}>
-            <textarea
-              className="se-textarea custom-scrollbar"
-              placeholder="Spill the tea..."
-              value={body}
-              onChange={(e) => {
-                if (e.target.value.length <= MAX_CHARS) setBody(e.target.value)
-              }}
-              onFocus={() => setTextareaFocused(true)}
-              onBlur={() => setTextareaFocused(false)}
-            />
+          {success && (
             <div style={{
-              position: 'absolute',
-              bottom: '1rem', right: '1.5rem',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: '#7b766e',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+              position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 1000, padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, #059669, #10b981)',
+              color: '#fff', borderRadius: 9999,
+              fontWeight: 700, fontSize: '0.875rem',
+              boxShadow: '0 8px 32px rgba(5,150,105,0.3)',
+              animation: 'tt-success-in 0.3s ease-out',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
             }}>
-              {body.length} / {MAX_CHARS}
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span>
+              {success}
             </div>
-          </section>
+          )}
 
-          {/* ── Media & Tags ── */}
-          <div className="md-grid-2" style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr',
-            gap: '2rem',
-            marginBottom: '2.5rem',
+          <div style={{
+            background: '#fff',
+            borderRadius: '1.25rem',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04), 0 8px 32px rgba(0,0,0,0.06)',
+            padding: '1.5rem',
+            overflow: 'visible',
+            animation: 'tt-fade-up 0.4s ease-out',
           }}>
-            {/* Tags */}
-            <div>
+            <div style={{ marginBottom: '1.75rem', textAlign: 'center' }}>
+              <h1 style={{
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                fontSize: 'clamp(1.5rem, 5vw, 2rem)',
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                marginBottom: '0.25rem',
+                background: 'linear-gradient(135deg, #b00d6a 0%, #f97316 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}>Share a Thought</h1>
+              <p style={{
+                color: '#857f75',
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                fontFamily: "'Inter', sans-serif",
+              }}>
+                What's the buzz on campus today? ☕
+              </p>
+            </div>
+
+            <div style={{ marginBottom: '1.75rem' }}>
               <label style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: '#b00d6a',
-                marginBottom: '0.75rem',
-                display: 'block',
+                fontWeight: 700, fontSize: '0.6875rem',
+                textTransform: 'uppercase', letterSpacing: '0.12em',
+                color: '#b00d6a', marginBottom: '0.625rem', display: 'block',
               }}>
-                Add Tags
+                Select Category
               </label>
-
-              {/* Current Tags */}
-              <div style={{
-                display: 'flex', flexWrap: 'wrap', gap: '0.5rem',
-                marginBottom: '0.75rem',
+              <div className="tt-cat-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(5, 1fr)',
+                gap: '0.5rem',
               }}>
-                {tags.map((tag) => (
-                  <span key={tag} style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    background: 'rgba(176, 13, 106, 0.1)',
-                    color: '#b00d6a',
-                    padding: '0.375rem 0.75rem',
-                    borderRadius: 9999,
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    border: '1px solid rgba(176, 13, 106, 0.2)',
-                  }}>
-                    #{tag}
-                    <button
-                      onClick={() => removeTag(tag)}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: '#b00d6a', display: 'flex', padding: 0,
-                        fontSize: '0.75rem',
-                      }}
-                    >
-                      <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>close</span>
+                {CATEGORIES.map(c => {
+                  const on = cat === c.key
+                  return (
+                    <button key={c.key} className="tt-cat-btn" onClick={() => setCat(c.key)} style={{
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      padding: '0.75rem 0.25rem', borderRadius: '0.875rem',
+                      border: on ? '2px solid #b00d6a' : '2px solid transparent',
+                      background: on
+                        ? 'linear-gradient(135deg, rgba(176,13,106,0.08), rgba(249,115,22,0.05))'
+                        : 'linear-gradient(180deg, #faf6f0, #f3ede4)',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: on ? '0 2px 12px rgba(176,13,106,0.12)' : '0 1px 3px rgba(0,0,0,0.03)',
+                      animation: on ? 'tt-pulse-ring 0.6s ease-out' : 'none',
+                    }}>
+                      <span className={`material-symbols-outlined ${on ? 'mat-fill' : ''}`}
+                        style={{
+                          fontSize: 22, marginBottom: '0.25rem',
+                          color: on ? '#b00d6a' : '#857f75',
+                          transition: 'color 0.2s',
+                        }}
+                      >{c.icon}</span>
+                      <span className="tt-cat-label" style={{
+                        fontSize: '0.5625rem', fontWeight: on ? 700 : 600,
+                        color: on ? '#b00d6a' : '#857f75', textTransform: 'uppercase',
+                        letterSpacing: '0.02em', textAlign: 'center',
+                        lineHeight: 1.2,
+                        transition: 'color 0.2s',
+                      }}>{c.label}</span>
                     </button>
-                  </span>
-                ))}
+                  )
+                })}
               </div>
+            </div>
 
-              {/* Tag Input */}
-              <div style={{ position: 'relative' }}>
-                <input
-                  className="se-tag-input"
-                  type="text"
-                  placeholder="Type and hit enter..."
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={handleTagKeyDown}
-                />
-                <span className="material-symbols-outlined" style={{
-                  position: 'absolute',
-                  right: '1rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#7b766e',
-                  fontSize: '1.25rem',
-                  transition: 'color 0.2s',
-                  pointerEvents: 'none',
+            <div style={{
+              marginBottom: '1.5rem',
+              position: 'relative',
+              animation: shake ? 'tt-shake 0.5s ease' : 'none',
+            }}>
+              <textarea
+                className="tt-create-textarea"
+                placeholder="Spill the tea… ☕ What's on your mind?"
+                value={body}
+                onChange={e => { if (e.target.value.length <= MAX_CHARS) setBody(e.target.value) }}
+                style={{
+                  width: '100%', minHeight: 160,
+                  background: 'linear-gradient(180deg, #faf6f0, #f5efe6)',
+                  border: '1px solid rgba(211,205,196,0.4)',
+                  borderRadius: '0.875rem', padding: '1rem 1.125rem',
+                  paddingBottom: '2.5rem',
+                  fontFamily: "'Inter', sans-serif", fontSize: '0.9375rem',
+                  lineHeight: 1.6,
+                  color: '#322e28', outline: 'none', resize: 'none',
+                  transition: 'box-shadow 0.25s, border-color 0.25s',
+                }}
+              />
+              <div style={{
+                position: 'absolute', bottom: '0.75rem', left: '1rem', right: '1rem',
+                display: 'flex', alignItems: 'center', gap: '0.625rem',
+              }}>
+                <div style={{
+                  flex: 1, height: 3, background: 'rgba(211,205,196,0.3)',
+                  borderRadius: 9999, overflow: 'hidden',
                 }}>
-                  tag
+                  <div style={{
+                    width: `${charPercent}%`,
+                    height: '100%',
+                    background: charPercent > 90
+                      ? 'linear-gradient(90deg, #f59e0b, #dc2626)'
+                      : 'linear-gradient(90deg, #b00d6a, #f97316)',
+                    borderRadius: 9999,
+                    transition: 'width 0.2s, background 0.3s',
+                  }} />
+                </div>
+                <span style={{
+                  fontSize: '0.625rem', fontWeight: 700,
+                  color: charColor,
+                  fontVariantNumeric: 'tabular-nums',
+                  minWidth: 52, textAlign: 'right',
+                  transition: 'color 0.3s',
+                }}>{body.length}/{MAX_CHARS}</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <label style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 700, fontSize: '0.6875rem',
+                  textTransform: 'uppercase', letterSpacing: '0.12em',
+                  color: '#b00d6a',
+                }}>
+                  Tags
+                </label>
+                <span style={{
+                  fontSize: '0.625rem', fontWeight: 600,
+                  color: tags.length >= MAX_TAGS ? '#dc2626' : '#857f75',
+                  transition: 'color 0.2s',
+                }}>
+                  {tags.length}/{MAX_TAGS}
                 </span>
               </div>
-            </div>
 
-            {/* Image Upload */}
-            <div>
-              <label style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 700,
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                color: '#b00d6a',
-                marginBottom: '0.75rem',
-                display: 'block',
-              }}>
-                Attachments
-              </label>
+              {tags.length > 0 && (
+                <div style={{
+                  display: 'flex', flexWrap: 'wrap', gap: '0.375rem',
+                  marginBottom: '0.5rem',
+                }}>
+                  {tags.map(t => (
+                    <span key={t} style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+                      background: 'linear-gradient(135deg, rgba(176,13,106,0.08), rgba(249,115,22,0.06))',
+                      color: '#b00d6a',
+                      padding: '0.3rem 0.625rem', borderRadius: 9999,
+                      fontSize: '0.75rem', fontWeight: 700,
+                      animation: tagAnim === t ? 'tt-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none',
+                      border: '1px solid rgba(176,13,106,0.1)',
+                    }}>
+                      #{t}
+                      <button className="tt-remove-tag" onClick={() => setTags(p => p.filter(x => x !== t))} style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: '#b00d6a', display: 'flex', padding: '2px',
+                        borderRadius: '50%', transition: 'background 0.15s',
+                      }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 13 }}>close</span>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {tagWarn && (
+                <div style={{
+                  marginBottom: '0.375rem', padding: '0.375rem 0.75rem',
+                  background: 'rgba(245,158,11,0.08)', borderRadius: '0.5rem',
+                  color: '#b45309', fontSize: '0.6875rem', fontWeight: 600,
+                  animation: 'tt-warn-in 0.25s ease-out',
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
+                  {tagWarn}
+                </div>
+              )}
 
               <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={onFileChange}
+                className="tt-tag-input"
+                type="text" placeholder="Type a tag and hit Enter 🎯"
+                value={tagIn} onChange={e => setTagIn(e.target.value)} onKeyDown={tagKey}
+                disabled={tags.length >= MAX_TAGS}
+                style={{
+                  width: '100%', padding: '0.6875rem 0.875rem',
+                  background: tags.length >= MAX_TAGS ? '#f0ebe4' : 'linear-gradient(180deg, #faf6f0, #f5efe6)',
+                  border: '1px solid rgba(211,205,196,0.4)',
+                  borderRadius: '0.75rem',
+                  fontSize: '0.8125rem', color: '#322e28', outline: 'none',
+                  transition: 'box-shadow 0.2s',
+                  opacity: tags.length >= MAX_TAGS ? 0.6 : 1,
+                }}
               />
+            </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                {/* Upload Button */}
-                <button
-                  onClick={handleImageUpload}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px dashed #b3aca3',
-                    borderRadius: '1rem',
-                    padding: '1.5rem',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#f8f0e5'
-                    e.currentTarget.style.borderColor = '#b00d6a'
-                    e.currentTarget.querySelectorAll('.upload-icon').forEach((el) => {
-                      el.style.color = '#b00d6a'
-                    })
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.borderColor = '#b3aca3'
-                    e.currentTarget.querySelectorAll('.upload-icon').forEach((el) => {
-                      el.style.color = '#7b766e'
-                    })
-                  }}
-                >
-                  <span
-                    className="material-symbols-outlined upload-icon"
-                    style={{ fontSize: '1.875rem', color: '#7b766e', marginBottom: '0.25rem', transition: 'color 0.2s' }}
-                  >
-                    add_a_photo
-                  </span>
-                  <span
-                    className="upload-icon"
-                    style={{
-                      fontSize: '0.6875rem', fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: '-0.01em',
-                      color: '#7b766e', transition: 'color 0.2s',
-                    }}
-                  >
-                    Add Image 📷
-                  </span>
-                </button>
-
-                {/* Image Previews */}
-                {images.map((img) => (
-                  <div key={img.id} style={{
-                    width: '8rem', height: '7rem',
-                    borderRadius: '1rem',
-                    background: '#eae1d5',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid #e4dccf',
-                    flexShrink: 0,
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <label style={{
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 700, fontSize: '0.6875rem',
+                  textTransform: 'uppercase', letterSpacing: '0.12em',
+                  color: '#b00d6a',
+                }}>
+                  Images
+                </label>
+                <span style={{
+                  fontSize: '0.625rem', fontWeight: 600,
+                  color: images.length >= MAX_IMAGES ? '#dc2626' : '#857f75',
+                }}>
+                  {images.length}/{MAX_IMAGES}
+                </span>
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} />
+              <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
+                {images.length < MAX_IMAGES && (
+                  <button className="tt-add-img-btn" onClick={() => fileRef.current?.click()} style={{
+                    width: 88, height: 76, borderRadius: '0.875rem',
+                    border: '2px dashed #d3cdc4', background: 'transparent',
+                    cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    color: '#857f75', transition: 'all 0.25s',
                   }}>
-                    <img
-                      src={img.url}
-                      alt="Upload preview"
-                      style={{
-                        width: '100%', height: '100%',
-                        objectFit: 'cover',
-                        opacity: 0.6,
-                      }}
-                    />
-                    <button
-                      onClick={() => removeImage(img.id)}
-                      style={{
-                        position: 'absolute',
-                        top: '0.25rem', right: '0.25rem',
-                        background: 'rgba(16, 14, 9, 0.5)',
-                        color: '#ffffff',
-                        borderRadius: '50%',
-                        border: 'none',
-                        padding: '0.25rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        lineHeight: 1,
-                      }}
+                    <span className="material-symbols-outlined" style={{ fontSize: 22 }}>add_a_photo</span>
+                    <span style={{ fontSize: '0.5625rem', fontWeight: 700, marginTop: '0.1875rem' }}>Add</span>
+                  </button>
+                )}
+                {images.map(img => (
+                  <div key={img.id} className="tt-img-thumb" style={{
+                    width: 88, height: 76, borderRadius: '0.875rem',
+                    overflow: 'hidden', position: 'relative',
+                    border: '1px solid rgba(211,205,196,0.5)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    transition: 'transform 0.25s, box-shadow 0.25s',
+                    animation: imgAnim === img.id ? 'tt-img-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none',
+                  }}>
+                    <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{
+                      position: 'absolute', top: 4, right: 4,
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.55)', color: '#fff',
+                      border: 'none', cursor: 'pointer', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      backdropFilter: 'blur(4px)',
+                      transition: 'background 0.15s',
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(220,38,38,0.8)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(0,0,0,0.55)'}
                     >
-                      <span className="material-symbols-outlined" style={{ fontSize: '0.75rem' }}>close</span>
+                      <span className="material-symbols-outlined" style={{ fontSize: 13 }}>close</span>
                     </button>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* ── Poll Builder ── */}
-          <section style={{
-            marginBottom: '2.5rem',
-            padding: '1.5rem',
-            background: '#f8f0e5',
-            borderRadius: '1rem',
-          }}>
-            {/* Poll Header */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '1.5rem',
+              marginBottom: '1.5rem', padding: '1rem 1.125rem',
+              background: 'linear-gradient(180deg, #faf6f0, #f5efe6)',
+              borderRadius: '0.875rem',
+              border: pollOn ? '1px solid rgba(176,13,106,0.12)' : '1px solid rgba(211,205,196,0.3)',
+              boxShadow: pollOn ? '0 2px 12px rgba(176,13,106,0.06)' : 'none',
+              transition: 'all 0.3s',
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span className="material-symbols-outlined" style={{ color: '#a02d70' }}>ballot</span>
-                <span style={{
-                  fontFamily: "'Plus Jakarta Sans', sans-serif",
-                  fontWeight: 700,
-                  color: '#322e28',
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: pollOn ? '0.875rem' : 0,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#b00d6a', fontSize: 20 }}>ballot</span>
+                  <span style={{
+                    fontFamily: "'Plus Jakarta Sans', sans-serif",
+                    fontWeight: 700, fontSize: '0.8125rem', color: '#322e28',
+                  }}>Add a Poll</span>
+                </div>
+                <button onClick={() => {
+                  setPollOn(v => !v)
+                  if (!pollOn) setPollOpts(['', ''])
+                }} style={{
+                  width: 46, height: 26, borderRadius: 9999,
+                  border: 'none', cursor: 'pointer', position: 'relative',
+                  background: pollOn
+                    ? 'linear-gradient(135deg, #b00d6a, #d4168a)'
+                    : '#d3cdc4',
+                  transition: 'background 0.3s', padding: 0,
+                  boxShadow: pollOn ? '0 2px 8px rgba(176,13,106,0.25)' : 'none',
                 }}>
-                  Create a Poll
-                </span>
+                  <div style={{
+                    position: 'absolute', top: 3,
+                    left: pollOn ? 23 : 3,
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: '#fff',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                    transition: 'left 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }} />
+                </button>
               </div>
 
-              {/* Toggle Switch */}
-              <button
-                onClick={() => setPollEnabled((v) => !v)}
-                style={{
-                  position: 'relative',
-                  width: '2.75rem', height: '1.5rem',
-                  borderRadius: 9999,
-                  border: 'none',
-                  cursor: 'pointer',
-                  background: pollEnabled ? '#b00d6a' : '#e4dccf',
-                  transition: 'background 0.3s',
-                  padding: 0,
-                }}
-              >
+              {pollOn && (
                 <div style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: pollEnabled ? 'calc(100% - 1.25rem - 2px)' : '2px',
-                  width: '1.25rem', height: '1.25rem',
-                  borderRadius: '50%',
-                  background: '#ffffff',
-                  border: '1px solid #d1d5db',
-                  transition: 'left 0.3s',
-                }} />
-              </button>
-            </div>
-
-            {/* Poll Content */}
-            {pollEnabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {pollOptions.map((opt, idx) => (
-                  <input
-                    key={idx}
-                    className="se-poll-input"
-                    type="text"
-                    placeholder={`Option ${idx + 1}`}
-                    value={opt}
-                    onChange={(e) => updatePollOption(idx, e.target.value)}
-                  />
-                ))}
-
-                <button
-                  onClick={addPollOption}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.25rem',
-                    marginTop: '0.5rem',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: '#b00d6a',
-                    fontSize: '0.75rem', fontWeight: 700,
-                    transition: 'opacity 0.2s',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>add_circle</span>
-                  ADD OPTION
-                </button>
-
-                {/* Duration */}
-                <div style={{
-                  paddingTop: '1rem',
-                  marginTop: '1rem',
-                  borderTop: '1px solid rgba(179, 172, 163, 0.2)',
+                  display: 'flex', flexDirection: 'column', gap: '0.4375rem',
+                  animation: 'tt-fade-up 0.3s ease-out',
                 }}>
-                  <label style={{
-                    fontSize: '0.625rem',
-                    fontWeight: 700,
-                    color: '#7b766e',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.1em',
-                    marginBottom: '0.5rem',
-                    display: 'block',
-                  }}>
-                    Duration
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {DURATIONS.map((d) => {
-                      const isActive = pollDuration === d
-                      return (
-                        <button
-                          key={d}
-                          onClick={() => setPollDuration(d)}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            border: 'none',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            ...(isActive
-                              ? {
-                                  background: '#b00d6a',
-                                  color: '#ffffff',
-                                  boxShadow: '0 4px 12px rgba(176, 13, 106, 0.2)',
-                                }
-                              : {
-                                  background: '#ffffff',
-                                  color: '#5f5b53',
-                                }),
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.background = 'rgba(176, 13, 106, 0.1)'
-                              e.currentTarget.style.color = '#b00d6a'
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.background = '#ffffff'
-                              e.currentTarget.style.color = '#5f5b53'
-                            }
-                          }}
+                  {pollOpts.map((o, i) => (
+                    <div key={i} style={{
+                      display: 'flex', gap: '0.375rem', alignItems: 'center',
+                      animation: i >= 2 ? 'tt-slide-in 0.25s ease-out' : 'none',
+                    }}>
+                      <input
+                        className="tt-poll-opt"
+                        type="text"
+                        placeholder={`Option ${i + 1} ${i < 2 ? '(required)' : ''}`}
+                        value={o}
+                        onChange={e => {
+                          const c = [...pollOpts]; c[i] = e.target.value; setPollOpts(c)
+                        }}
+                        style={{
+                          flex: 1, padding: '0.5625rem 0.75rem',
+                          background: '#fff', border: '1px solid rgba(211,205,196,0.3)',
+                          borderRadius: '0.625rem',
+                          fontSize: '0.8125rem', outline: 'none',
+                          transition: 'box-shadow 0.2s, border-color 0.2s',
+                        }}
+                      />
+                      {i >= 2 && (
+                        <button onClick={() => setPollOpts(p => p.filter((_, idx) => idx !== i))} style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#857f75', display: 'flex', padding: '4px',
+                          borderRadius: '50%', transition: 'color 0.15s',
+                        }}
+                          onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                          onMouseLeave={e => e.currentTarget.style.color = '#857f75'}
                         >
-                          {d}
+                          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>remove_circle</span>
                         </button>
-                      )
-                    })}
+                      )}
+                    </div>
+                  ))}
+
+                  {pollOpts.length < MAX_POLL_OPTIONS && (
+                    <button onClick={() => setPollOpts(p => [...p, ''])} style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#b00d6a', fontSize: '0.6875rem', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: '0.25rem',
+                      padding: '0.375rem 0',
+                      transition: 'opacity 0.15s',
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add_circle</span>
+                      Add Option ({pollOpts.length}/{MAX_POLL_OPTIONS})
+                    </button>
+                  )}
+
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <span style={{
+                      fontSize: '0.625rem', fontWeight: 700, color: '#857f75',
+                      textTransform: 'uppercase', letterSpacing: '0.08em',
+                      marginBottom: '0.375rem', display: 'block',
+                    }}>Duration</span>
+                    <div style={{ display: 'flex', gap: '0.375rem' }}>
+                      {DURATIONS.map(d => (
+                        <button key={d} className="tt-dur-btn" onClick={() => setPollDur(d)} style={{
+                          padding: '0.375rem 0.75rem', borderRadius: '0.5rem',
+                          fontSize: '0.6875rem', fontWeight: 700, border: 'none', cursor: 'pointer',
+                          background: pollDur === d
+                            ? 'linear-gradient(135deg, #b00d6a, #d4168a)'
+                            : '#fff',
+                          color: pollDur === d ? '#fff' : '#5f5b53',
+                          boxShadow: pollDur === d ? '0 2px 8px rgba(176,13,106,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+                          transition: 'all 0.2s',
+                        }}>{d}</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </section>
-
-          {/* ── Footer ── */}
-          <footer className="md-row" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1.5rem',
-            paddingTop: '1.5rem',
-            borderTop: '1px solid #e4dccf',
-          }}>
-            {/* Anonymous Identity */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              background: '#f8f0e5',
-              padding: '0.5rem 1rem',
-              borderRadius: 9999,
-            }}>
-              <div style={{ position: 'relative' }}>
-                <span className="material-symbols-outlined" style={{ color: '#904800', fontSize: '1.5rem' }}>
-                  pest_control_rodent
-                </span>
-                <div className="ping-anim" style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'rgba(144, 72, 0, 0.2)',
-                  borderRadius: '50%',
-                }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{
-                  fontSize: '0.625rem',
-                  fontWeight: 700,
-                  color: '#7b766e',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  lineHeight: 1,
-                }}>
-                  Posting as
-                </span>
-                                <span style={{
-                  fontWeight: 700,
-                  color: '#322e28',
-                  fontSize: '0.875rem',
-                }}>
-                  {user?.anonymousEmoji} {user?.anonymousName}
-                </span>
-              </div>
+              )}
             </div>
 
-            {/* Submit Button */}
-                       {submitError && (
-              <div style={{
-                padding: '0.75rem 1rem',
-                background: 'rgba(180, 19, 64, 0.08)',
-                borderRadius: '0.75rem',
-                color: '#b41340',
-                fontSize: '0.875rem',
-                textAlign: 'center',
-                fontWeight: 600,
-                width: '100%',
-              }}>
-                {submitError}
-              </div>
-            )}
-
-            <button
-              className="md-w-auto"
-              onClick={handleSubmit}
-              disabled={submitLoading}
-              style={{
-                width: '100%',
-                padding: '1rem 2.5rem',
-                background: 'linear-gradient(45deg, #b00d6a, #904800)',
-                color: '#ffffff',
-                borderRadius: 9999,
-                border: 'none',
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 700,
-                fontSize: '1.125rem',
-                cursor: 'pointer',
-                boxShadow: '0 8px 24px rgba(176, 13, 106, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.75rem',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 12px 32px rgba(176, 13, 106, 0.3)'
-                e.currentTarget.style.transform = 'scale(1.02)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(176, 13, 106, 0.2)'
-                e.currentTarget.style.transform = 'scale(1)'
-              }}
-              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.95)')}
-              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.02)')}
-            >
-                        {submitLoading ? (
-                <>
-                  <span style={{
-                    width: 20, height: 20,
-                    border: '2px solid rgba(255,255,255,0.3)',
-                    borderTopColor: '#ffffff',
-                    borderRadius: '50%',
-                    display: 'inline-block',
-                    animation: 'spin 0.6s linear infinite',
-                  }} />
-                  Posting…
-                </>
-              ) : (
-                'Post Anonymously 🚀'
-              )}
-            </button>
-          </footer>
-        </div>
-      </main>
-
-      {/* ═══════════ DESKTOP SIDEBAR ═══════════ */}
-      <aside className="md-show" style={{
-        display: 'none',
-        position: 'fixed',
-        left: '2rem',
-        top: '50%',
-        transform: 'translateY(-50%)',
-        flexDirection: 'column',
-        gap: '2rem',
-      }}>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '0.5rem',
-          color: '#b00d6a',
-        }}>
-          <Link href="/create" style={{
-            width: '3rem', height: '3rem',
-            borderRadius: '50%',
-            background: '#b00d6a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            boxShadow: '0 8px 24px rgba(176, 13, 106, 0.2)',
-            textDecoration: 'none',
-          }}>
-            <span className="material-symbols-outlined">edit_square</span>
-          </Link>
-          <div style={{
-            height: '5rem',
-            width: 1,
-            background: 'linear-gradient(to bottom, #b00d6a, transparent)',
-          }} />
-        </div>
-      </aside>
-
-      {/* ═══════════ MOBILE BOTTOM NAV ═══════════ */}
-      <nav className="mob-nav-create md-hide">
-        {MOBILE_NAV.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: item.active ? '0.75rem' : '0.5rem',
-              textDecoration: 'none',
-              transition: 'all 0.2s',
-              WebkitTapHighlightColor: 'transparent',
-              ...(item.active
-                ? {
-                    background: 'linear-gradient(135deg, #b00d6a, #904800)',
-                    color: '#ffffff',
-                    borderRadius: '50%',
-                    boxShadow: '0 8px 24px rgba(176, 13, 106, 0.3)',
-                    transform: 'translateY(-0.5rem)',
-                  }
-                : {
-                    color: '#322e28',
-                    opacity: 0.6,
-                  }),
-            }}
-          >
-            <span
-              className={`material-symbols-outlined ${item.active ? 'mat-fill' : ''}`}
-              style={{ fontSize: '1.5rem' }}
-            >
-              {item.icon}
-            </span>
-            <span style={{
-              fontFamily: "'Inter', sans-serif",
-              fontSize: '0.625rem',
-              fontWeight: 500,
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: '0.875rem',
+              alignItems: 'center', paddingTop: '1.25rem',
+              borderTop: '1px solid rgba(211,205,196,0.25)',
             }}>
-              {item.label}
-            </span>
-          </Link>
-        ))}
-      </nav>
-    </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.625rem',
+                background: 'linear-gradient(135deg, rgba(176,13,106,0.04), rgba(249,115,22,0.03))',
+                padding: '0.5rem 1rem', borderRadius: 9999,
+                border: '1px solid rgba(176,13,106,0.08)',
+              }}>
+                <span style={{
+                  fontSize: '1.375rem',
+                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.1))',
+                }}>{user?.anonymousEmoji || '🎭'}</span>
+                <div>
+                  <p style={{
+                    fontSize: '0.5625rem', fontWeight: 700, color: '#857f75',
+                    textTransform: 'uppercase', letterSpacing: '0.1em',
+                    lineHeight: 1,
+                    marginBottom: '0.125rem',
+                  }}>Posting as</p>
+                  <p style={{
+                    fontSize: '0.8125rem', fontWeight: 700, color: '#322e28',
+                    lineHeight: 1.2,
+                  }}>{user?.anonymousName || 'Anonymous'}</p>
+                </div>
+              </div>
+
+              {err && (
+                <div style={{
+                  padding: '0.625rem 1rem',
+                  background: 'linear-gradient(135deg, rgba(220,38,38,0.06), rgba(220,38,38,0.03))',
+                  borderRadius: '0.75rem',
+                  border: '1px solid rgba(220,38,38,0.1)',
+                  color: '#b91c1c',
+                  fontSize: '0.8125rem', fontWeight: 600,
+                  width: '100%', textAlign: 'center',
+                  animation: 'tt-fade-up 0.25s ease-out',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem',
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>error</span>
+                  {err}
+                </div>
+              )}
+
+              <button
+                className="tt-submit-btn"
+                onClick={submit}
+                disabled={loading}
+                style={{
+                  width: '100%', maxWidth: 340, padding: '0.9375rem 1.5rem',
+                  background: loading
+                    ? 'linear-gradient(135deg, #c084a0, #d4a373)'
+                    : 'linear-gradient(135deg, #b00d6a 0%, #d4168a 40%, #f97316 100%)',
+                  color: '#fff', borderRadius: 9999, border: 'none',
+                  fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 700, fontSize: '0.9375rem',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  boxShadow: '0 6px 20px rgba(176,13,106,0.22)',
+                  opacity: loading ? 0.85 : 1,
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  letterSpacing: '-0.01em',
+                  WebkitTapHighlightColor: 'transparent',
+                }}>
+                {loading ? (
+                  <>
+                    <span style={{
+                      width: 18, height: 18,
+                      border: '2.5px solid rgba(255,255,255,0.3)',
+                      borderTopColor: '#fff',
+                      borderRadius: '50%',
+                      animation: 'tt-spin 0.6s linear infinite',
+                      display: 'inline-block',
+                    }} />
+                    Posting…
+                  </>
+                ) : (
+                  <>Post Anonymously <span style={{ fontSize: '1.125rem' }}>🚀</span></>
+                )}
+              </button>
+
+              <p style={{
+                fontSize: '0.625rem',
+                color: '#a39e95',
+                fontWeight: 500,
+                textAlign: 'center',
+                lineHeight: 1.4,
+                maxWidth: 280,
+              }}>
+                Your identity stays hidden. Be respectful & follow community guidelines.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }
