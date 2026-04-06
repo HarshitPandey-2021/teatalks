@@ -4,7 +4,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import usePosts from '@/store/usePost'
+import usePosts from '@/store/usePosts'
 
 const CATEGORIES = [
   { key: 'academic', label: 'Academic', icon: 'school', feedLabel: 'Academic' },

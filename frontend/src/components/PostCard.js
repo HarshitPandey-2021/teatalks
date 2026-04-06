@@ -513,7 +513,7 @@ export default function PostCard({
               aria-label="Report"
               style={{ color: '#c4b8ab' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 15 }}>more_horiz</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 15 }}>outlined_flag</span>
             </button>
           </div>
         </div>
