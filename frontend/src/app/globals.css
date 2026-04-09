@@ -249,6 +249,20 @@ body {
   transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
 }
 
+.hero {
+  position: relative;
+  min-height: 85vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+
+  /* 🎨 ABSTRACT GRADIENT (YOUR PALETTE) */
+  background:
+    radial-gradient(circle at 20% 30%, rgba(215, 38, 120, 0.35), transparent 40%),  /* magenta */
+    radial-gradient(circle at 80% 20%, rgba(255, 122, 24, 0.35), transparent 40%),  /* orange */
+    radial-gradient(circle at 50% 80%, rgba(255, 209, 102, 0.25), transparent 40%), /* yellow */
+    linear-gradient(180deg, #0b0b0d, #121216);
 /* Input focus glow */
 .input-glow:focus {
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15), 0 0 20px rgba(236, 72, 153, 0.08);
@@ -260,6 +274,10 @@ body {
   overflow: hidden;
 }
 
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
 .btn-shine::after {
   content: '';
   position: absolute;
@@ -323,6 +341,18 @@ body {
 
 /* Existing styles below */
 
+.mascot-bg{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background-image:url('/logo-mascot.png');
+background-size:650px;
+background-repeat:no-repeat;
+background-position:center;
+opacity:0.21;
+pointer-events:none;
 .navbar {
   display: flex;
   justify-content: space-between;
@@ -959,6 +989,9 @@ main {
   .xl-block { display: none !important; }
 }
 
+.footer p{
+color:#6b7280;
+}
 @keyframes toastSlide {
   0% { opacity: 0; transform: translate(-50%, 10px); }
   15% { opacity: 1; transform: translate(-50%, 0); }
