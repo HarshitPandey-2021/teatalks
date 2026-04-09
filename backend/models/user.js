@@ -2,14 +2,14 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
-    rollNumber: {
+    campusName: {
+      type: String,
+      required: true
+    },
+    email: {
       type: String,
       required: true,
       unique: true
-    },
-    name: {
-      type: String,
-      required: true
     },
     password: {
       type: String,
@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
     },
     emoji: {
       type: String,
-      default: '🙂'
+      default: '😶'
     },
     role: {
       type: String,

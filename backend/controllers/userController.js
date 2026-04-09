@@ -2,24 +2,77 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+const ADJECTIVES = [
+  'Silent', 'Curious', 'Shadow', 'Midnight', 'Cool',
+  'Lone', 'Blue', 'Brave', 'Wise', 'Swift',
+  'Chill', 'Mystic', 'Cosmic', 'Neon', 'Zen',
+];
+const ANIMALS = [
+  'Fox', 'Panda', 'Owl', 'Wolf', 'Cat',
+  'Penguin', 'Tiger', 'Eagle', 'Dolphin', 'Koala',
+  'Raccoon', 'Falcon', 'Otter', 'Lynx', 'Raven',
+];
+const EMOJIS = [
+  '🦊', '🐼', '🦉', '🐺', '🐱',
+  '🐧', '🐯', '🦅', '🐬', '🐨',
+  '🦝', '🦅', '🦦', '🐱', '🐦',
+];
+
+function generateIdentity() {
+  const index = Math.floor(Math.random() * ADJECTIVES.length);
+  return {
+    anonymousName: `${ADJECTIVES[index]} ${ANIMALS[index]}`,
+    emoji: EMOJIS[index],
+  };
+}
+
+function buildAuthResponse(user) {
+  const token = jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '1d' }
+  );
+
+  return {
+    token,
+    user: {
+      _id: user._id,
+      email: user.email,
+      campusName: user.campusName,
+      anonymousName: user.anonymousName,
+      anonymousEmoji: user.emoji,
+      role: user.role,
+    },
+  };
+}
+
 // REGISTER
 exports.register = async (req, res) => {
   try {
-    const { rollNumber, name, password } = req.body;
+    const { campusName, email, password } = req.body;
+
+    if (!campusName || !email || !password) {
+      return res.status(400).json({
+        msg: 'campusName, email, and password are required',
+      });
+    }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ rollNumber });
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ msg: 'User already exists' });
     }
 
     // Hash password only
     const hashedPassword = await bcrypt.hash(password, 10);
+    const identity = generateIdentity();
 
     const user = await User.create({
-      rollNumber,
-      name,
-      password: hashedPassword
+      campusName,
+      email,
+      password: hashedPassword,
+      anonymousName: identity.anonymousName,
+      emoji: identity.emoji,
     });
 
     console.log('Registered user', {
@@ -28,7 +81,10 @@ exports.register = async (req, res) => {
       db: User.db?.name
     });
 
-    res.json({ msg: 'User registered successfully', id: user._id });
+    res.status(201).json({
+      msg: 'User registered successfully',
+      ...buildAuthResponse(user),
+    });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -38,10 +94,10 @@ exports.register = async (req, res) => {
 // LOGIN
 exports.login = async (req, res) => {
   try {
-    const { rollNumber, password } = req.body;
+    const { email, password } = req.body;
 
     // Find user
-    const user = await User.findOne({ rollNumber });
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
@@ -57,18 +113,7 @@ exports.login = async (req, res) => {
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
-    // Generate token
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    res.json({
-      token,
-      anonymousName: user.anonymousName,
-      emoji: user.emoji
-    });
+    res.json(buildAuthResponse(user));
 
   } catch (err) {
     res.status(500).json({ error: err.message });

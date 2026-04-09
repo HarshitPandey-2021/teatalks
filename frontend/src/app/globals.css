@@ -262,7 +262,7 @@ body {
     radial-gradient(circle at 20% 30%, rgba(215, 38, 120, 0.35), transparent 40%),  /* magenta */
     radial-gradient(circle at 80% 20%, rgba(255, 122, 24, 0.35), transparent 40%),  /* orange */
     radial-gradient(circle at 50% 80%, rgba(255, 209, 102, 0.25), transparent 40%), /* yellow */
-    linear-gradient(180deg, #0b0b0d, #121216);
+    linear-gradient(180deg, #0b0b0d, #121216);}
 /* Input focus glow */
 .input-glow:focus {
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15), 0 0 20px rgba(236, 72, 153, 0.08);
@@ -277,7 +277,7 @@ body {
 .hero-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.45);}
 .btn-shine::after {
   content: '';
   position: absolute;
@@ -353,6 +353,7 @@ background-repeat:no-repeat;
 background-position:center;
 opacity:0.21;
 pointer-events:none;
+}
 .navbar {
   display: flex;
   justify-content: space-between;

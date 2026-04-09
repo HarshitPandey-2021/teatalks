@@ -1,140 +1,65 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import api from '@/lib/axios'
 
 const AuthContext = createContext(null)
 
-// ── Anonymous Identity Generator ──
-const ADJECTIVES = [
-  'Silent', 'Curious', 'Shadow', 'Midnight', 'Cool',
-  'Lone', 'Blue', 'Brave', 'Wise', 'Swift',
-  'Chill', 'Mystic', 'Cosmic', 'Neon', 'Zen',
-]
-const ANIMALS = [
-  'Fox', 'Panda', 'Owl', 'Wolf', 'Cat',
-  'Penguin', 'Tiger', 'Eagle', 'Dolphin', 'Koala',
-  'Raccoon', 'Falcon', 'Otter', 'Lynx', 'Raven',
-]
-const EMOJIS = [
-  '🦊', '🐼', '🦉', '🐺', '🐱',
-  '🐧', '🐯', '🦅', '🐬', '🐨',
-  '🦝', '🦅', '🦦', '🐱', '🐦‍⬛',
-]
+function readStoredUser() {
+  if (typeof window === 'undefined') {
+    return null
+  }
 
-function generateIdentity() {
-  const i = Math.floor(Math.random() * ADJECTIVES.length)
-  const j = Math.floor(Math.random() * ANIMALS.length)
-  return {
-    anonymousName: `${ADJECTIVES[i]} ${ANIMALS[j]}`,
-    anonymousEmoji: EMOJIS[j],
+  try {
+    const savedUser = localStorage.getItem('teatalks_user')
+    const savedToken = localStorage.getItem('teatalks_token')
+
+    if (!savedUser || !savedToken) {
+      return null
+    }
+
+    return JSON.parse(savedUser)
+  } catch {
+    localStorage.removeItem('teatalks_user')
+    localStorage.removeItem('teatalks_token')
+    return null
   }
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(readStoredUser)
+  const [loading] = useState(false)
   const router = useRouter()
 
-  // ── Restore session on mount ──
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('teatalks_user')
-      const savedToken = localStorage.getItem('teatalks_token')
-      if (savedUser && savedToken) {
-        setUser(JSON.parse(savedUser))
-      }
-    } catch {
-      localStorage.removeItem('teatalks_user')
-      localStorage.removeItem('teatalks_token')
-    }
-    setLoading(false)
+  const persistSession = useCallback((token, nextUser) => {
+    localStorage.setItem('teatalks_token', token)
+    localStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+    setUser(nextUser)
   }, [])
 
-  // ── LOGIN ──
   const login = useCallback(async (email, password) => {
-    /*
-    ┌─────────────────────────────────────────────────┐
-    │  REAL API — uncomment when Somesh's backend is  │
-    │  running on localhost:5000                       │
-    │                                                 │
-    │  import api from '@/lib/axios'                  │
-    │                                                 │
-    │  const res = await api.post('/auth/login', {    │
-    │    email, password                              │
-    │  })                                             │
-    │  const { token, user } = res.data               │
-    │  localStorage.setItem('teatalks_token', token)  │
-    │  localStorage.setItem('teatalks_user',          │
-    │    JSON.stringify(user))                         │
-    │  setUser(user)                                  │
-    │  router.push('/feed')                           │
-    │  return user                                    │
-    └─────────────────────────────────────────────────┘
-    */
+    const res = await api.post('/users/login', { email, password })
+    const { token, user } = res.data
 
-    // ── FAKE AUTH (remove when backend is ready) ──
-    await new Promise((r) => setTimeout(r, 1000))
-
-    // Simulate: any email/password works
-    const identity = generateIdentity()
-       const fakeUser = {
-      _id: 'user_' + Date.now(),
-      email,
-      ...identity,
-      role: email.includes('admin') ? 'admin' : 'user',
-      branch: 'CSE',
-      year: '3rd Year',
-    }
-    const fakeToken = 'jwt_' + Date.now()
-
-    localStorage.setItem('teatalks_token', fakeToken)
-    localStorage.setItem('teatalks_user', JSON.stringify(fakeUser))
-    setUser(fakeUser)
+    persistSession(token, user)
     router.push('/feed')
-    return fakeUser
-  }, [router])
+    return user
+  }, [persistSession, router])
 
-  // ── SIGNUP ──
   const signup = useCallback(async (formData) => {
-    /*
-    ┌─────────────────────────────────────────────────┐
-    │  REAL API — uncomment when backend is ready     │
-    │                                                 │
-    │  const res = await api.post('/auth/signup', {   │
-    │    name: formData.name,                         │
-    │    email: formData.email,                       │
-    │    password: formData.password,                 │
-    │    branch: formData.branch,                     │
-    │    year: formData.year,                         │
-    │  })                                             │
-    │  const { token, user } = res.data               │
-    │  ... same as login ...                          │
-    └─────────────────────────────────────────────────┘
-    */
-
-    // ── FAKE AUTH ──
-    await new Promise((r) => setTimeout(r, 1200))
-
-    const identity = generateIdentity()
-    const fakeUser = {
-      _id: 'user_' + Date.now(),
+    const res = await api.post('/users/register', {
+      campusName: formData.college,
       email: formData.email,
-      ...identity,
-      role: 'user',
-      branch: formData.branch || '',
-      year: formData.year || '',
-    }
-    const fakeToken = 'jwt_' + Date.now()
+      password: formData.password,
+    })
+    const { token, user } = res.data
 
-    localStorage.setItem('teatalks_token', fakeToken)
-    localStorage.setItem('teatalks_user', JSON.stringify(fakeUser))
-    setUser(fakeUser)
+    persistSession(token, user)
     router.push('/feed')
-    return fakeUser
-  }, [router])
+    return user
+  }, [persistSession, router])
 
-  // ── LOGOUT ──
   const logout = useCallback(() => {
     localStorage.removeItem('teatalks_token')
     localStorage.removeItem('teatalks_user')
@@ -142,17 +67,17 @@ export function AuthProvider({ children }) {
     router.push('/login')
   }, [router])
 
+  const value = useMemo(() => ({
+    user,
+    loading,
+    isAuthenticated: !!user,
+    login,
+    signup,
+    logout,
+  }), [user, loading, login, signup, logout])
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        isAuthenticated: !!user,
-        login,
-        signup,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )
