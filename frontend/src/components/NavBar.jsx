@@ -1,27 +1,32 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
-export default function NavBar(){
+export default function NavBar() {
+  const [open, setOpen] = useState(false);
 
-return(
+  return (
+    <nav className="navbar">
+      
+      <div className="logo">☕ TeaTalks</div>
 
-<nav className="navbar">
+      {/* HAMBURGER */}
+      <div className="menu-toggle" onClick={() => setOpen(!open)}>
+        ☰
+      </div>
 
-<div className="logo">☕ TeaTalks</div>
+      {/* NAV LINKS */}
+      <div className={`navlinks ${open ? "active" : ""}`}>
+        <Link href="/" onClick={() => setOpen(false)}>Home</Link>
+        <Link href="/about" onClick={() => setOpen(false)}>About</Link>
+        <Link href="/privacy" onClick={() => setOpen(false)}>Privacy</Link>
+        <Link href="/terms" onClick={() => setOpen(false)}>Terms</Link>
 
-<div className="navlinks">
+        <button className="btn-outline">Log In</button>
+        <button className="btn-primary">Sign Up</button>
+      </div>
 
-<Link href="/">Home</Link>
-<Link href="/about">About</Link>
-<Link href="/privacy">Privacy</Link>
-<Link href="/terms">Terms</Link>
-
-<button className="btn-outline">Log In</button>
-<button className="btn-primary">Sign Up</button>
-
-</div>
-
-</nav>
-
-)
-
+    </nav>
+  );
 }

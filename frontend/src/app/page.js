@@ -1,14 +1,13 @@
 import Image from "next/image";
-
-import SearchBar from "../components/SearchBar";
-import CategoryTabs from "../components/CategoryTabs";
-import EmptyState from "../components/EmptyState";
+import EmptyState from "@/components/EmptyState";
+import TeaGame from "@/components/TeaGame";
+import Testimonial from "@/components/Testimonial";
 
 export default function Home() {
   return (
-    <main>
+    <main style={{ background: "#ffffff" }}>
 
-      {/* HERO SECTION */}
+      {/* HERO SECTION — DO NOT TOUCH */}
       <section 
         className="hero"
         style={{
@@ -23,7 +22,6 @@ export default function Home() {
           padding: "80px 20px",
         }}
       >
-        {/* Mascot enlarged */}
         <Image
           src="/mascot-1.png"
           alt="Mascot"
@@ -39,27 +37,22 @@ export default function Home() {
           }}
         />
 
-        {/* LIGHTER OVERLAY */}
         <div 
-          className="hero-overlay"
           style={{
             position: "absolute",
             inset: 0,
             background: "rgba(255,255,255,0.5)",
             zIndex: 1
           }}
-        ></div>
+        />
 
-        <div 
-          className="hero-content"
-          style={{ position: "relative", zIndex: 2, display: "inline-block" }}
-        >
+        <div style={{ position: "relative", zIndex: 2 }}>
           <h1>Your Campus. Your Voice. Zero Judgement</h1>
           <p style={{ margin: "15px 0" }}>
             TeaTalks is an anonymous student platform where real
             campus conversations happen.
           </p>
-          <button className="btn-primary" style={{ display: "block", margin: "20px auto" }}>
+          <button className="btn-primary" style={{ marginTop: "20px" }}>
             Spill the Tea ☕
           </button>
         </div>
@@ -67,50 +60,15 @@ export default function Home() {
 
       <div className="page">
 
-        <div className="mascot-bg"></div>
+        {/* 🎮 GAME SECTION */}
+        <TeaGame/>
 
-        {/* SEARCH SECTION */}
-        <section className="section" style={{ padding: "40px 20px" }}>
-          <h2 style={{
-            textAlign: "center",
-            fontSize: "2rem",
-            fontWeight: "700",
-            color: "#FF6EC4",
-            marginBottom: "20px",
-            textShadow: "1px 1px 8px rgba(255,110,196,0.4)"
-          }}>
-            Search Discussions
-          </h2>
-          <SearchBar/>
-        </section>
+        {/* 👥 TESTIMONIAL SECTION */}
+        <Testimonial/>
 
-        {/* CATEGORIES SECTION */}
-        <section className="section" style={{ padding: "40px 20px" }}>
-          <h2 style={{
-            textAlign: "center",
-            fontSize: "2rem",
-            fontWeight: "700",
-            color: "#FF6EC4",
-            marginBottom: "20px",
-            textShadow: "1px 1px 8px rgba(255,110,196,0.4)"
-          }}>
-            Categories
-          </h2>
-          <CategoryTabs/>
-        </section>
-
-        {/* WHY TEATALKS SECTION */}
-        <section className="section" style={{ padding: "50px 20px", background: "rgba(255,255,255,0.03)" }}>
-          <h2 style={{
-            textAlign: "center",
-            fontSize: "2rem",
-            fontWeight: "700",
-            color: "#FF6EC4",
-            marginBottom: "40px",
-            textShadow: "1px 1px 8px rgba(255,110,196,0.4)",
-          }}>
-            Why TeaTalks?
-          </h2>
+        {/* WHY TEATALKS */}
+        <section className="section" style={{ padding: "50px 20px" }}>
+          <h2 className="section-title">Why TeaTalks?</h2>
 
           <div style={{
             display: "grid",
@@ -121,56 +79,38 @@ export default function Home() {
             {[
               {
                 title: "Anonymous Posts",
-                desc: "Speak freely, unburden your thoughts, and let the world hear you without labels. Here, your voice is yours alone.",
-                color: "#FFA500" // Orange
+                desc: "Speak freely, unburden your thoughts, and let the world hear you without labels.",
+                color: "#FFA500"
               },
               {
                 title: "Campus Stories",
-                desc: "Dive into the tapestry of campus life — laughter in the hostels, the silent library whispers, and the tales that classrooms hold.",
-                color: "#FF6EC4" // Magenta
+                desc: "Dive into real campus life — hostels, libraries, classrooms.",
+                color: "#FF6EC4"
               },
               {
                 title: "Professor Reviews",
-                desc: "Gain honest reflections on professors and courses — illuminating the path for fellow students and guiding learning journeys.",
-                color: "#D4AF37" // Brownish Yellow
+                desc: "Honest reflections to guide smarter academic choices.",
+                color: "#FFD700"
               },
               {
                 title: "Community Voting",
-                desc: "Empower the community to highlight what truly matters. The best stories, advice, and discussions rise to the top organically.",
-                color: "#FF2400" // Scarlet
+                desc: "The best conversations rise naturally.",
+                color: "#FF2400"
               },
             ].map((card, idx) => (
               <div
                 key={idx}
-                className="card"
                 style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.15))",
+                  background: "#fff",
                   borderRadius: "20px",
-                  padding: "25px 20px",
-                  width: "100%",
+                  padding: "25px",
                   maxWidth: "300px",
-                  boxShadow: `0 8px 25px ${card.color}40`,
-                  textAlign: "center",
-                  cursor: "default",
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                  boxShadow: `0 8px 25px ${card.color}30`,
+                  textAlign: "center"
                 }}
               >
-                <h3 style={{
-                  color: card.color,
-                  fontSize: "1.4rem",
-                  fontWeight: "700",
-                  marginBottom: "15px",
-                  textShadow: `1px 1px 6px ${card.color}50`,
-                }}>
-                  {card.title}
-                </h3>
-                <p style={{
-                  fontSize: "1rem",
-                  lineHeight: "1.6",
-                  color: card.color, // DESC same as title now
-                }}>
-                  {card.desc}
-                </p>
+                <h3 style={{ color: card.color }}>{card.title}</h3>
+                <p style={{ color: "#555" }}>{card.desc}</p>
               </div>
             ))}
           </div>
@@ -182,7 +122,6 @@ export default function Home() {
         </section>
 
       </div>
-
     </main>
-  )
+  );
 }

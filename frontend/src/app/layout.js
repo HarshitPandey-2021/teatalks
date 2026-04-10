@@ -1,27 +1,22 @@
 import "./globals.css";
-import NavBar from "../components/NavBar";
-import Footer from "../components/Footer";
+import NavBar from "@/components/NavBar";
+import Footer from "@/components/Footer";
 
 export const metadata = {
-title: "TeaTalks",
-description: "Campus discussion platform",
+  title: "TeaTalks",
+  description: "Campus discussion platform",
 };
 
 export default function RootLayout({ children }) {
-
-return (
-<html lang="en"  suppressHydrationWarning>
-
-<body  suppressHydrationWarning>
-
-<NavBar/>
-
-{children}
-
-<Footer/>
-
-</body>
-
-</html>
-);
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <NavBar />
+        <main>
+          {children}
+        </main>
+        <Footer />
+      </body>
+    </html>
+  );
 }
