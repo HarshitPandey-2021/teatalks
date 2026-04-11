@@ -29,7 +29,19 @@ export default function SpillMode() {
 
   return (
     <section style={{ padding: "90px 20px", textAlign: "center" }}>
-      <h2 className="section-title">Spill Mode ☕</h2>
+      <h2 style={{
+  fontSize: "2.3rem",
+  fontWeight: "900",
+  textAlign: "center",
+  marginBottom: "20px",
+  background: "linear-gradient(90deg,#FF6EC4,#FFA500,#FFD700)",
+  WebkitBackgroundClip: "text",
+  color: "transparent",
+  letterSpacing: "0.6px",
+  textShadow: "0 6px 20px rgba(255,165,0,0.25)"
+}}>
+  Spill Mode
+</h2>
       <p style={{ color: "#777", marginBottom: "25px" }}>
         tap gently…
       </p>

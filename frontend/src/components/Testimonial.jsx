@@ -39,7 +39,19 @@ export default function Testimonial() {
         textAlign: "center",
       }}
     >
-      <h2 className="section-title">Behind the Tea ☕</h2>
+      <h2 style={{
+  fontSize: "2.3rem",
+  fontWeight: "900",
+  textAlign: "center",
+  marginBottom: "20px",
+  background: "linear-gradient(90deg,#FFA500,#FFD700,#FF6EC4)",
+  WebkitBackgroundClip: "text",
+  color: "transparent",
+  letterSpacing: "0.6px",
+  textShadow: "0 6px 20px rgba(255,182,0,0.25)"
+}}>
+  Behind the Tea
+</h2>
       <p style={{ marginBottom: "35px", color: "#666" }}>
         the ones who let it exist
       </p>
