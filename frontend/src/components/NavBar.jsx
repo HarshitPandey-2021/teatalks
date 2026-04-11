@@ -8,7 +8,8 @@ export default function NavBar() {
 
   return (
     <nav className="navbar">
-      
+
+      {/* LOGO */}
       <div className="logo">☕ TeaTalks</div>
 
       {/* HAMBURGER */}
@@ -18,13 +19,21 @@ export default function NavBar() {
 
       {/* NAV LINKS */}
       <div className={`navlinks ${open ? "active" : ""}`}>
+
         <Link href="/" onClick={() => setOpen(false)}>Home</Link>
         <Link href="/about" onClick={() => setOpen(false)}>About</Link>
         <Link href="/privacy" onClick={() => setOpen(false)}>Privacy</Link>
         <Link href="/terms" onClick={() => setOpen(false)}>Terms</Link>
 
-        <button className="btn-outline">Log In</button>
-        <button className="btn-primary">Sign Up</button>
+        {/* AUTH BUTTONS */}
+        <Link href="/login" onClick={() => setOpen(false)}>
+          <button className="btn-outline">Log In</button>
+        </Link>
+
+        <Link href="/signup" onClick={() => setOpen(false)}>
+          <button className="btn-primary">Sign Up</button>
+        </Link>
+
       </div>
 
     </nav>
