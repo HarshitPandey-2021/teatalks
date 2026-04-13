@@ -10,6 +10,7 @@ import CommentCard from '@/components/CommentCard'
 import CommentForm from '@/components/CommentForm'
 import ReportModal from '@/components/ReportModal'
 import PostCard from '@/components/PostCard'
+import api from '@/lib/axios'
 
 /* ─────────────────────────────────────────────────────────────
    API PLACEHOLDERS
@@ -19,35 +20,45 @@ import PostCard from '@/components/PostCard'
 ───────────────────────────────────────────────────────────── */
 
 async function fetchPost(id) {
-  // TODO: return await fetch(`/api/posts/${id}`).then(r => r.json())
-  return MOCK_POSTS[id] || null
+  const res = await api.get(`/posts/${id}`)
+  return res.data.post
 }
 
 async function fetchComments(postId) {
-  // TODO: return await fetch(`/api/posts/${postId}/comments`).then(r => r.json())
-  return MOCK_COMMENTS[postId] || []
+  const res = await api.get(`/posts/${postId}/comments`)
+  const flat = res.data.comments || []
+  const byId = new Map(flat.map((c) => [c._id, { ...c, replies: [] }]))
+  const roots = []
+  flat.forEach((c) => {
+    const node = byId.get(c._id)
+    if (c.parentCommentId && byId.has(c.parentCommentId)) {
+      byId.get(c.parentCommentId).replies.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+  return roots
 }
 
 async function fetchRelatedPosts(postId, category) {
-  // TODO: return await fetch(`/api/posts?category=${category}&exclude=${postId}&limit=3`).then(r => r.json())
-  return Object.values(MOCK_POSTS)
-    .filter(p => p._id !== postId)
-    .sort((a, b) => (b.category === category ? 1 : 0) - (a.category === category ? 1 : 0) || b.score - a.score)
-    .slice(0, 3)
+  const res = await api.get('/posts', { params: { category, exclude: postId, limit: 3 } })
+  return res.data.posts || []
 }
 
 async function submitVote(postId, vote) {
-  // TODO: return await fetch(`/api/posts/${postId}/vote`, { method: 'POST', body: JSON.stringify({ vote }) })
+  const mappedVote = vote === 'up' ? 1 : vote === 'down' ? -1 : 0
+  if (!mappedVote) return { ok: true }
+  await api.post(`/posts/${postId}/vote`, { vote: mappedVote })
   return { ok: true }
 }
 
 async function submitComment(postId, text) {
-  // TODO: return await fetch(`/api/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ text }) })
+  await api.post(`/posts/${postId}/comments`, { text })
   return { ok: true }
 }
 
 async function submitReply(postId, parentCommentId, text) {
-  // TODO: return await fetch(`/api/posts/${postId}/comments/${parentCommentId}/replies`, { method: 'POST', body: JSON.stringify({ text }) })
+  await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text })
   return { ok: true }
 }
 
@@ -239,7 +250,7 @@ function MiniPulse() {
    SINGLE COMMENT ROW (inline, no external CommentCard dep issue)
 ───────────────────────────────────────────────────────────── */
 
-function CommentRow({ comment, postAuthorName, user, onReply, depth = 0 }) {
+function CommentRow({ comment, postAuthorName, user, onReply, postId, depth = 0 }) {
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -263,7 +274,7 @@ function CommentRow({ comment, postAuthorName, user, onReply, depth = 0 }) {
     e.preventDefault()
     if (!replyText.trim()) return
     setSubmitting(true)
-    await submitReply(null, comment._id, replyText.trim())
+    await submitReply(postId, comment._id, replyText.trim())
     onReply(comment._id, replyText.trim())
     setReplyText('')
     setShowReplyForm(false)
@@ -459,6 +470,7 @@ function CommentRow({ comment, postAuthorName, user, onReply, depth = 0 }) {
                   postAuthorName={postAuthorName}
                   user={user}
                   onReply={onReply}
+                  postId={postId}
                   depth={depth + 1}
                 />
               </motion.div>
@@ -1017,6 +1029,7 @@ export default function PostDetailPage() {
                         postAuthorName={post.anonymousName}
                         user={user}
                         onReply={handleReply}
+                        postId={params.id}
                         depth={0}
                       />
                     </motion.div>

@@ -4,7 +4,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
-import usePosts from '@/store/usePosts'
+import api from '@/lib/axios'
 
 const CATEGORIES = [
   { key: 'academic', label: 'Academic', icon: 'school', feedLabel: 'Academic' },
@@ -43,7 +43,6 @@ export default function CreatePostPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
   const fileRef = useRef(null)
-  const addPost = usePosts((state) => state.addPost)
 
   const [cat, setCat] = useState('academic')
   const [body, setBody] = useState('')
@@ -60,6 +59,7 @@ export default function CreatePostPage() {
   const [imgAnim, setImgAnim] = useState('')
   const [shake, setShake] = useState(false)
   const [tagWarn, setTagWarn] = useState('')
+  const imagesRef = useRef([])
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
@@ -85,6 +85,20 @@ export default function CreatePostPage() {
       return () => clearTimeout(t)
     }
   }, [success])
+
+  useEffect(() => {
+    imagesRef.current = images
+  }, [images])
+
+  useEffect(() => {
+    return () => {
+      imagesRef.current.forEach((img) => {
+        if (img?.url?.startsWith('blob:')) {
+          URL.revokeObjectURL(img.url)
+        }
+      })
+    }
+  }, [])
 
   const charPercent = (body.length / MAX_CHARS) * 100
   const charColor = charPercent > 90 ? '#dc2626' : charPercent > 70 ? '#f59e0b' : '#b00d6a'
@@ -167,47 +181,77 @@ export default function CreatePostPage() {
     return true
   }, [body, pollOn, pollOpts])
 
+  const uploadImageToCloudinary = useCallback(async (file) => {
+    const sigRes = await api.post('/uploads/image-signature')
+    const { timestamp, signature, folder, apiKey, cloudName, publicId } = sigRes.data
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('api_key', apiKey)
+    formData.append('timestamp', timestamp)
+    formData.append('signature', signature)
+    formData.append('folder', folder)
+    formData.append('public_id', publicId)
+
+    const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!uploadRes.ok) {
+      let errMsg = 'Image upload failed'
+      try {
+        const details = await uploadRes.json()
+        errMsg = details?.error?.message || errMsg
+      } catch {}
+      throw new Error(errMsg)
+    }
+    return uploadRes.json()
+  }, [])
+
   const submit = useCallback(async () => {
     if (!validate()) return
     setErr('')
     setLoading(true)
-    await new Promise(r => setTimeout(r, 1200))
 
     const feedCategory = CATEGORY_TO_FEED[cat] || 'General'
-    const filledPollOpts = pollOpts.filter(o => o.trim()).map(o => o.trim())
+    try {
+      let uploadPayload = {}
+      if (images.length > 0 && images[0]?.file) {
+        const uploaded = await uploadImageToCloudinary(images[0].file)
+        uploadPayload = {
+          image: uploaded.secure_url,
+          imagePublicId: uploaded.public_id,
+          imageMeta: {
+            width: uploaded.width,
+            height: uploaded.height,
+            format: uploaded.format,
+            bytes: uploaded.bytes,
+          },
+        }
+      }
 
-    const newPost = {
-      _id: Date.now().toString(),
-      anonymousName: user?.anonymousName || 'Anonymous',
-      anonymousEmoji: user?.anonymousEmoji || '🎭',
-      category: feedCategory,
-      text: body.trim(),
-      tags: [...tags],
-      score: 0,
-      commentCount: 0,
-      createdAt: new Date().toISOString(),
-      isMine: true,
-      userVote: null,
-      imageUrl: images.length > 0 ? images[0].url : null,
-      ...(pollOn && filledPollOpts.length >= 2
-        ? {
-            poll: {
-              options: filledPollOpts,
-              votes: filledPollOpts.map(() => 0),
-              duration: pollDur,
-              totalVotes: 0,
-              userVoted: null,
-            },
-          }
-        : {}),
+      await api.post('/posts', {
+        category: feedCategory,
+        text: body.trim(),
+        tags,
+        ...uploadPayload,
+      })
+
+      imagesRef.current.forEach((img) => {
+        if (img?.url?.startsWith('blob:')) {
+          URL.revokeObjectURL(img.url)
+        }
+      })
+
+      setSuccess('Posted successfully! 🎉')
+      setLoading(false)
+      setTimeout(() => router.push('/feed'), 800)
+    } catch (error) {
+      setLoading(false)
+      setErr(error.response?.data?.message || error.message || 'Failed to create post')
     }
-
-    addPost(newPost)
-
-    setSuccess('Posted successfully! 🎉')
-    setLoading(false)
-    setTimeout(() => router.push('/feed'), 1000)
-  }, [cat, body, tags, images, pollOn, pollOpts, pollDur, router, validate, user, addPost])
+  }, [cat, body, tags, images, router, validate, uploadImageToCloudinary])
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -583,7 +627,12 @@ export default function CreatePostPage() {
                     animation: imgAnim === img.id ? 'tt-img-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' : 'none',
                   }}>
                     <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <button onClick={() => setImages(p => p.filter(i => i.id !== img.id))} style={{
+                    <button onClick={() => {
+                      if (img.url?.startsWith('blob:')) {
+                        URL.revokeObjectURL(img.url)
+                      }
+                      setImages(p => p.filter(i => i.id !== img.id))
+                    }} style={{
                       position: 'absolute', top: 4, right: 4,
                       width: 22, height: 22, borderRadius: '50%',
                       background: 'rgba(0,0,0,0.55)', color: '#fff',

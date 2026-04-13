@@ -65,12 +65,14 @@ export default function LoginPage() {
   const [newCount, setNewCount] = useState(47)
   const [tickerIndex, setTickerIndex] = useState(0)
 
-  const { login, isAuthenticated, loading: authLoading } = useAuth()
+  const { login, user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) router.push('/feed')
-  }, [authLoading, isAuthenticated, router])
+    if (!authLoading && isAuthenticated) {
+      router.push(user?.role === 'admin' ? '/admin' : '/feed')
+    }
+  }, [authLoading, isAuthenticated, user, router])
 
   useEffect(() => {
     const t = setInterval(() => setNewCount((n) => n + 1), 8000)

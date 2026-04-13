@@ -173,7 +173,7 @@ export default function PostCard({
   category = 'General', text = '', imageUrl, tags = [],
   score = 0, commentCount = 0, createdAt, userVote = null,
   isMine = false, poll = null,
-  onVote, onComment, onShare, compact = false,
+  onVote, onComment, onShare, onEdit, onDelete, compact = false,
 }) {
   const [vote, setVote] = useState(userVote)
   const [sc, setSc] = useState(score)
@@ -498,6 +498,26 @@ export default function PostCard({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+            {isMine && (
+              <>
+                <button
+                  className="tt-action-btn"
+                  onClick={e => { e.stopPropagation(); onEdit?.(_id) }}
+                  aria-label="Edit post"
+                  style={{ color: '#8b5cf6' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
+                </button>
+                <button
+                  className="tt-action-btn"
+                  onClick={e => { e.stopPropagation(); onDelete?.(_id) }}
+                  aria-label="Delete post"
+                  style={{ color: '#b41340' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete</span>
+                </button>
+              </>
+            )}
             <button
               className={`tt-action-btn${shareFlash ? ' share-flash' : ''}`}
               onClick={doShare}

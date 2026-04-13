@@ -10,6 +10,10 @@ const postSchema = new mongoose.Schema({
     type: String,
     default: 'Anonymous'
   },
+  anonymousEmoji: {
+    type: String,
+    default: '😶'
+  },
   category: {
     type: String,
     required: true
@@ -17,8 +21,22 @@ const postSchema = new mongoose.Schema({
   text: {
     type: String
   },
+  tags: [
+    {
+      type: String
+    }
+  ],
   image: {
     type: String
+  },
+  imagePublicId: {
+    type: String
+  },
+  imageMeta: {
+    width: Number,
+    height: Number,
+    format: String,
+    bytes: Number
   },
   votes: {
     type: Number,

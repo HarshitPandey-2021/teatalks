@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState, useCallback } from 'react'
+import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/axios'
 
@@ -28,9 +28,14 @@ function readStoredUser() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(readStoredUser)
-  const [loading] = useState(false)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
+
+  useEffect(() => {
+    setUser(readStoredUser())
+    setLoading(false)
+  }, [])
 
   const persistSession = useCallback((token, nextUser) => {
     localStorage.setItem('teatalks_token', token)
@@ -43,7 +48,7 @@ export function AuthProvider({ children }) {
     const { token, user } = res.data
 
     persistSession(token, user)
-    router.push('/feed')
+    router.push(user.role === 'admin' ? '/admin' : '/feed')
     return user
   }, [persistSession, router])
 
