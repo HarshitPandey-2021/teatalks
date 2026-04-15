@@ -21,27 +21,4 @@ const protect = (req, res, next) => {
   }
 };
 
-const optionalProtect = (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return next();
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-      return next();
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded.id;
-    req.userRole = decoded.role;
-  } catch (error) {
-    // Ignore invalid optional auth and continue as guest.
-  }
-
-  next();
-};
-
 module.exports = protect;
-module.exports.optionalProtect = optionalProtect;

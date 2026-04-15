@@ -289,29 +289,6 @@ export default function FeedPage() {
     }
   }, [])
 
-  const handleVote = useCallback(async (postId, vote) => {
-    const value = vote === 'up' ? 1 : vote === 'down' ? -1 : 0
-
-    try {
-      const res = await api.post(`/posts/${postId}/vote`, { value })
-      const updatedPost = res.data.post
-      setPosts((prev) => prev.map((post) => (
-        post._id === postId ? { ...post, ...updatedPost } : post
-      )))
-    } catch (error) {
-      setPosts((prev) => prev.map((post) => (
-        post._id === postId
-          ? {
-              ...post,
-              userVote: post.userVote,
-              score: post.score,
-            }
-          : post
-      )))
-      alert(error.response?.data?.message || 'Failed to update vote')
-    }
-  }, [])
-
   useEffect(() => {
     if (isAuthenticated) fetchPosts()
   }, [isAuthenticated, fetchPosts])
@@ -704,7 +681,6 @@ export default function FeedPage() {
                   <PostCard
                     {...post}
                     isMine={String(post.authorId) === String(user?._id)}
-                    onVote={handleVote}
                     onEdit={openEditModal}
                     onDelete={(id) => setDeleteTarget(posts.find((p) => p._id === id) || null)}
                   />
@@ -741,7 +717,7 @@ export default function FeedPage() {
                 textAlign: 'center', padding: '1.25rem 0 0.5rem',
                 color: '#c8c1b8', fontSize: '0.6875rem',
                 fontWeight: 600, letterSpacing: '0.04em',
-              }}>You are all caught up ✨</div>
+              }}>You're all caught up ✨</div>
             )}
           </div>
         </main>

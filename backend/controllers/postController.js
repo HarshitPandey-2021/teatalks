@@ -1,38 +1,20 @@
 const Post = require('../models/posts');
 const Comment = require('../models/comment');
 const User = require('../models/user');
-const Vote = require('../models/vote');
 const mongoose = require('mongoose');
 
-async function serializePost(postDoc, userId) {
+async function serializePost(postDoc) {
   const post = postDoc.toObject ? postDoc.toObject() : postDoc;
   const commentCount = await Comment.countDocuments({ postId: post._id });
-
   const safeImageUrl =
     typeof post.image === 'string' && post.image.startsWith('blob:')
       ? null
       : post.image || null;
-
-  // Aggregate score
-  const scoreAgg = await Vote.aggregate([
-    { $match: { postId: post._id } },
-    { $group: { _id: null, total: { $sum: "$value" } } }
-  ]);
-  const score = scoreAgg[0]?.total || 0;
-
-  // Current user’s vote
-  let userVote = 0;
-  if (userId) {
-    const voteDoc = await Vote.findOne({ postId: post._id, userId });
-    userVote = voteDoc ? voteDoc.value : 0;
-  }
-
   return {
     ...post,
     imageUrl: safeImageUrl,
-    score,
+    score: post.votes || 0,
     commentCount,
-    userVote, // 1, -1, or 0
   };
 }
 
@@ -68,20 +50,26 @@ exports.createPost = async (req, res) => {
 
 exports.listPosts = async (req, res) => {
   try {
-    const posts = await Post.find({}).sort({ createdAt: -1 });
-    const enrichedPosts = await Promise.all(
-      posts.map(p => serializePost(p, req.user).catch(err => {
-        console.error("serializePost error:", err);
-        return p; // fallback
-      }))
-    );
-    res.json({ posts: enrichedPosts });
+    const { category, exclude, limit = 20, page = 1 } = req.query;
+    const query = {};
+    if (category) query.category = category;
+    if (exclude) query._id = { $ne: exclude };
+
+    const safeLimit = Math.min(Number(limit) || 20, 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+    const skip = (safePage - 1) * safeLimit;
+
+    const posts = await Post.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit);
+
+    const enrichedPosts = await Promise.all(posts.map(serializePost));
+    return res.json({ posts: enrichedPosts, page: safePage, limit: safeLimit });
   } catch (error) {
-    console.error("listPosts error:", error);
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };
-
 
 exports.getPostById = async (req, res) => {
   try {
@@ -92,7 +80,7 @@ exports.getPostById = async (req, res) => {
     if (!post) {
       return res.status(404).json({ message: 'Post not found' });
     }
-    return res.json({ post: await serializePost(post, req.user) });
+    return res.json({ post: await serializePost(post) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -143,34 +131,22 @@ exports.deletePost = async (req, res) => {
 
 exports.votePost = async (req, res) => {
   try {
-    const { value } = req.body; // 1, -1, or 0 to clear vote
-    const userId = req.user;
-    const postId = req.params.id;
-
-    if (!mongoose.Types.ObjectId.isValid(postId)) {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(404).json({ message: 'Post not found' });
     }
-    if (![1, -1, 0].includes(value)) {
-      return res.status(400).json({ message: 'vote must be 1, -1, or 0' });
+    const { vote } = req.body;
+    if (![1, -1].includes(vote)) {
+      return res.status(400).json({ message: 'vote must be 1 or -1' });
     }
 
-    if (value === 0) {
-      await Vote.findOneAndDelete({ userId, postId });
-    } else {
-      await Vote.findOneAndUpdate(
-        { userId, postId },
-        { value },
-        { upsert: true, new: true }
-      );
-    }
-
-    const post = await Post.findById(postId);
+    const post = await Post.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { votes: vote } },
+      { new: true }
+    );
     if (!post) return res.status(404).json({ message: 'Post not found' });
-
-    return res.json({ post: await serializePost(post, userId) });
+    return res.json({ post: await serializePost(post) });
   } catch (error) {
-    console.error("votePost error:", error);
     return res.status(500).json({ message: error.message });
   }
 };
-
