@@ -1,7 +1,7 @@
 // components/PostCard.jsx
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import ReportModal from './ReportModal'
 
@@ -182,14 +182,6 @@ export default function PostCard({
   const [shareFlash, setShareFlash] = useState(false)
   const router = useRouter()
   const cs = CAT_STYLES[category] || CAT_STYLES.General
-
-  useEffect(() => {
-    setVote(userVote === 1 ? 'up' : userVote === -1 ? 'down' : userVote || null)
-  }, [userVote])
-
-  useEffect(() => {
-    setSc(score || 0)
-  }, [score])
 
   const doVote = useCallback((dir) => {
     const prev = vote
