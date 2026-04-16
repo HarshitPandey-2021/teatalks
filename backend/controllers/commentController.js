@@ -2,6 +2,7 @@ const Comment = require('../models/comment');
 const Post = require('../models/posts');
 const User = require('../models/user');
 const mongoose = require('mongoose');
+const { buildToxicityModeration } = require('../services/contentModerationService');
 
 exports.createComment = async (req, res) => {
   try {
@@ -19,14 +20,17 @@ exports.createComment = async (req, res) => {
     const user = await User.findById(req.user).select('anonymousName');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    const { toxicity, moderationFields } = await buildToxicityModeration(text.trim());
+
     const comment = await Comment.create({
       postId: post._id,
       authorId: req.user,
       anonymousName: user.anonymousName,
       text: text.trim(),
+      ...moderationFields,
     });
 
-    return res.status(201).json({ comment });
+    return res.status(201).json({ comment, toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -51,15 +55,18 @@ exports.createReply = async (req, res) => {
     const user = await User.findById(req.user).select('anonymousName');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    const { toxicity, moderationFields } = await buildToxicityModeration(text.trim());
+
     const comment = await Comment.create({
       postId: post._id,
       authorId: req.user,
       anonymousName: user.anonymousName,
       text: text.trim(),
       parentCommentId: parentComment._id,
+      ...moderationFields,
     });
 
-    return res.status(201).json({ comment });
+    return res.status(201).json({ comment, toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -70,7 +77,15 @@ exports.listPostComments = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.json({ comments: [] });
     }
-    const comments = await Comment.find({ postId: req.params.id }).sort({ createdAt: 1 });
+    const query = { postId: req.params.id };
+    if (req.userRole !== 'admin') {
+      query.$or = [
+        { visibility: 'visible' },
+        { visibility: { $exists: false } },
+        { visibility: null },
+      ];
+    }
+    const comments = await Comment.find(query).sort({ createdAt: 1 });
     return res.json({ comments });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -88,8 +103,10 @@ exports.updateComment = async (req, res) => {
     if (!text?.trim()) return res.status(400).json({ message: 'Comment text is required' });
 
     comment.text = text.trim();
+    const { toxicity, moderationFields } = await buildToxicityModeration(comment.text);
+    Object.assign(comment, moderationFields);
     await comment.save();
-    return res.json({ comment });
+    return res.json({ comment, toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

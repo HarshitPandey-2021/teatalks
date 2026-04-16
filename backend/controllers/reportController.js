@@ -1,6 +1,7 @@
 const Report = require('../models/reports');
 const Post = require('../models/posts');
 const Comment = require('../models/comment');
+const { buildReportModerationFields, AUTO_HIDE_REPORT_THRESHOLD } = require('../services/contentModerationService');
 
 exports.createReport = async (req, res) => {
   try {
@@ -33,11 +34,30 @@ exports.createReport = async (req, res) => {
       reason,
     });
 
-    await (targetType === 'Post'
-      ? Post.updateOne({ _id: targetId }, { $inc: { reports: 1 } })
-      : Comment.updateOne({ _id: targetId }, { $inc: { reports: 1 } }));
+    const Model = targetType === 'Post' ? Post : Comment;
+    const updatedTarget = await Model.findByIdAndUpdate(
+      targetId,
+      { $inc: { reports: 1 } },
+      { new: true }
+    );
 
-    return res.status(201).json({ report });
+    let autoHidden = false;
+    if (updatedTarget) {
+      const moderationFields = buildReportModerationFields(updatedTarget.reports, updatedTarget.moderationStatus);
+      if (moderationFields) {
+        Object.assign(updatedTarget, moderationFields);
+        if (!updatedTarget.moderationReasons.includes(`Automatically hidden after ${AUTO_HIDE_REPORT_THRESHOLD} reports`)) {
+          updatedTarget.moderationReasons = [
+            ...updatedTarget.moderationReasons,
+            `Automatically hidden after ${AUTO_HIDE_REPORT_THRESHOLD} reports`
+          ];
+        }
+        await updatedTarget.save();
+        autoHidden = true;
+      }
+    }
+
+    return res.status(201).json({ report, autoHidden });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

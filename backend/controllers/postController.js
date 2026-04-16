@@ -3,6 +3,10 @@ const Comment = require('../models/comment');
 const User = require('../models/user');
 const Vote = require('../models/vote');
 const mongoose = require('mongoose');
+const {
+  buildToxicityModeration,
+  buildVoteModerationFields,
+} = require('../services/contentModerationService');
 
 async function serializePost(postDoc, userId) {
   const post = postDoc.toObject ? postDoc.toObject() : postDoc;
@@ -48,6 +52,8 @@ exports.createPost = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const { toxicity, moderationFields } = await buildToxicityModeration(text || '');
+
     const post = await Post.create({
       authorId: req.user,
       anonymousName: user.anonymousName,
@@ -58,9 +64,10 @@ exports.createPost = async (req, res) => {
       image,
       imagePublicId,
       imageMeta,
+      ...moderationFields,
     });
 
-    return res.status(201).json({ post: await serializePost(post) });
+    return res.status(201).json({ post: await serializePost(post), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -68,7 +75,16 @@ exports.createPost = async (req, res) => {
 
 exports.listPosts = async (req, res) => {
   try {
-    const posts = await Post.find({}).sort({ createdAt: -1 });
+    const query = req.userRole === 'admin'
+      ? {}
+      : {
+          $or: [
+            { visibility: 'visible' },
+            { visibility: { $exists: false } },
+            { visibility: null },
+          ],
+        };
+    const posts = await Post.find(query).sort({ createdAt: -1 });
     const enrichedPosts = await Promise.all(
       posts.map(p => serializePost(p, req.user).catch(err => {
         console.error("serializePost error:", err);
@@ -90,6 +106,10 @@ exports.getPostById = async (req, res) => {
     }
     const post = await Post.findById(req.params.id);
     if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    const isVisibleToUsers = post.visibility === 'visible' || post.visibility === undefined || post.visibility === null;
+    if (!isVisibleToUsers && req.userRole !== 'admin') {
       return res.status(404).json({ message: 'Post not found' });
     }
     return res.json({ post: await serializePost(post, req.user) });
@@ -115,6 +135,14 @@ exports.updatePost = async (req, res) => {
         post[field] = req.body[field];
       }
     });
+
+    if (req.body.text !== undefined) {
+      const { toxicity, moderationFields } = await buildToxicityModeration(post.text || '');
+      Object.assign(post, moderationFields);
+      await post.save();
+      return res.json({ post: await serializePost(post), toxicity });
+    }
+
     await post.save();
     return res.json({ post: await serializePost(post) });
   } catch (error) {
@@ -166,6 +194,25 @@ exports.votePost = async (req, res) => {
 
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    const score = await Vote.aggregate([
+      { $match: { postId: post._id } },
+      { $group: { _id: null, total: { $sum: "$value" } } }
+    ]);
+    const totalScore = score[0]?.total || 0;
+    post.votes = totalScore;
+
+    const voteModerationFields = buildVoteModerationFields(totalScore, post.moderationStatus);
+    if (voteModerationFields) {
+      Object.assign(post, voteModerationFields);
+      if (!post.moderationReasons.includes('Automatically hidden because score dropped to -10 or below')) {
+        post.moderationReasons = [
+          ...post.moderationReasons,
+          'Automatically hidden because score dropped to -10 or below'
+        ];
+      }
+    }
+    await post.save();
 
     return res.json({ post: await serializePost(post, userId) });
   } catch (error) {

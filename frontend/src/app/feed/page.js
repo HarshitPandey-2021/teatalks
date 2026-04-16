@@ -485,7 +485,15 @@ export default function FeedPage() {
       }
 
       const res = await api.patch(`/posts/${editModalPost._id}`, payload)
-      setPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...res.data.post } : p)))
+      const updatedPost = res?.data?.post
+      const isVisible = updatedPost?.visibility === 'visible' || updatedPost?.visibility === undefined || updatedPost?.visibility === null
+
+      if (updatedPost && isVisible) {
+        setPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updatedPost } : p)))
+      } else {
+        setPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
+        alert('Your post was hidden for review because it was detected as toxic.')
+      }
       closeEditModal()
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to update post')

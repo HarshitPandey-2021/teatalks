@@ -158,6 +158,12 @@ const studentPatterns = [
   /\b(ye|wo|these|those)\s+(students|log|bachhe)\s+(bahut|very)?\s*(bad|bekaar|nalayak|stupid)/gi,
 ];
 
+const relationshipRumorPatterns = [
+  /\b(sir|madam|mam|teacher|prof|professor|faculty|student|classmate|batchmate)\b.{0,40}\b(loves|love|likes|dating|date|affair|relationship|romance|romantic|crush|sleeping\s+with|slept\s+with|hooking\s+up|hookup|flirting|cheating)\b/gi,
+  /\b(loves|love|likes|dating|date|affair|relationship|romance|romantic|crush|sleeping\s+with|slept\s+with|hooking\s+up|hookup|flirting|cheating)\b.{0,40}\b(sir|madam|mam|teacher|prof|professor|faculty|student|classmate|batchmate)\b/gi,
+  /\b(mr|mrs|ms|miss|dr|prof|professor)\.?\s+\w+\b.{0,50}\b(loves|love|likes|dating|affair|relationship|sleeping\s+with|slept\s+with|hooking\s+up|flirting)\b/gi,
+];
+
 // Caste/Category patterns
 const castePatterns = [
   /\b(sc|st|obc|general|ews|unreserved)\s+(quota|reservation|category|students?|log)?\s*(is\s+|are\s+|hai\s+|hain\s+)?(bad|unfair|galat|wrong|should|remove|hatao|cancel)/gi,
@@ -525,6 +531,30 @@ function genderDiscriminationScore(text) {
   return Math.min(score, 1);
 }
 
+function relationshipRumorScore(text) {
+  let score = 0;
+  const cleanText = normalizeClean(text);
+  const deobfuscatedText = deobfuscate(text);
+
+  relationshipRumorPatterns.forEach(pattern => {
+    try {
+      const cleanMatches = cleanText.match(pattern);
+      if (cleanMatches) {
+        score += cleanMatches.length * 0.55;
+      }
+
+      const deobMatches = deobfuscatedText.match(pattern);
+      if (deobMatches && !cleanMatches) {
+        score += deobMatches.length * 0.6;
+      }
+    } catch (e) {
+      console.warn("Invalid relationship rumor pattern");
+    }
+  });
+
+  return Math.min(score, 1);
+}
+
 // Generate reasons for toxicity
 function generateReasons(scores) {
   const reasons = [];
@@ -546,6 +576,9 @@ function generateReasons(scores) {
   }
   if (scores.genderDiscrimination > 0.3) {
     reasons.push("Gender-based discrimination or favoritism allegation detected");
+  }
+  if (scores.relationshipRumor > 0.25) {
+    reasons.push("Personal relationship or sexual rumor targeting individuals");
   }
 
   return reasons;
@@ -573,13 +606,117 @@ function generateSuggestions(scores) {
   if (scores.genderDiscrimination > 0.2) {
     suggestions.push("Avoid making unverified claims about favoritism or discrimination");
   }
+  if (scores.relationshipRumor > 0.2) {
+    suggestions.push("Avoid gossip or speculation about personal or intimate relationships");
+  }
 
   return suggestions;
 }
 
+function buildToxicityPrompt(text) {
+  return [
+    "Analyze the following user-generated content for toxicity.",
+    "Consider abuse, harassment, hate, threats, bullying, profanity used aggressively, targeted insults, and rumor-spreading about identifiable people.",
+    "Treat romantic, sexual, or relationship speculation about teachers, students, classmates, or colleagues as toxic or inappropriate gossip even without profanity.",
+    "Return only valid JSON with this exact shape:",
+    '{"toxicity": 0.0, "isToxic": false, "reasons": ["short reason"], "suggestions": ["short suggestion"]}',
+    "Rules:",
+    "- toxicity must be a number from 0 to 1",
+    "- isToxic must be true when toxicity > 0.5, otherwise false",
+    "- reasons and suggestions must be arrays of short strings",
+    "- Do not include markdown or extra explanation",
+    "",
+    `Content: """${text}"""`
+  ].join("\n");
+}
+
+function parseAiToxicityResponse(content) {
+  if (!content || typeof content !== "string") {
+    return null;
+  }
+
+  const trimmed = content.trim();
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}/);
+  const jsonText = jsonMatch ? jsonMatch[0] : trimmed;
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    const toxicity = Number(parsed?.toxicity);
+
+    return {
+      toxicity: Number.isFinite(toxicity) ? Math.min(Math.max(toxicity, 0), 1) : 0,
+      isToxic: typeof parsed?.isToxic === "boolean" ? parsed.isToxic : toxicity > 0.5,
+      reasons: Array.isArray(parsed?.reasons)
+        ? parsed.reasons.filter((item) => typeof item === "string" && item.trim())
+        : [],
+      suggestions: Array.isArray(parsed?.suggestions)
+        ? parsed.suggestions.filter((item) => typeof item === "string" && item.trim())
+        : [],
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function getAiToxicityScore(text) {
+  const apiKey = process.env.FEATHERLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error("FEATHERLESS_API_KEY is not configured");
+  }
+
+  const apiUrl = process.env.FEATHERLESS_URL || "https://api.featherless.ai/v1/chat/completions";
+  const model = process.env.FEATHERLESS_MODEL || "deepseek-ai/DeepSeek-V3.2";
+
+  const response = await withBackoff(async () => {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert moderation assistant that detects toxicity in user-generated content and responds with strict JSON only."
+          },
+          {
+            role: "user",
+            content: buildToxicityPrompt(text)
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 300
+      })
+    });
+
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => "");
+      const err = new Error(`Featherless API error: ${res.status}`);
+      err.status = res.status;
+      err.details = errorBody;
+      throw err;
+    }
+
+    return res.json();
+  });
+
+  const content = response?.choices?.[0]?.message?.content;
+  const parsed = parseAiToxicityResponse(content);
+
+  if (!parsed) {
+    const err = new Error("Featherless returned an invalid moderation response");
+    err.details = content;
+    throw err;
+  }
+
+  return parsed;
+}
+
 // ===== MAIN FUNCTION =====
 
-export async function detectToxicity(text) {
+async function detectToxicity(text) {
   if (!text || typeof text !== 'string') {
     throw new Error("Text is required and must be a string");
   }
@@ -603,7 +740,8 @@ export async function detectToxicity(text) {
     caste: casteScore(cleanNormalized),
     sarcasm: sarcasmScore(text, cleanNormalized),
     personalAttack: personalAttackScore(text), // 🆕 Pass original text
-    genderDiscrimination: genderDiscriminationScore(cleanNormalized)
+    genderDiscrimination: genderDiscriminationScore(cleanNormalized),
+    relationshipRumor: relationshipRumorScore(text)
   };
 
   // Weights for different categories
@@ -613,7 +751,8 @@ export async function detectToxicity(text) {
     caste: 0.45,
     sarcasm: 0.20,
     personalAttack: 0.35,
-    genderDiscrimination: 0.40
+    genderDiscrimination: 0.40,
+    relationshipRumor: 0.50
   };
 
   // Calculate local weighted score
@@ -651,41 +790,16 @@ export async function detectToxicity(text) {
   // AI-based detection (with fallback)
   let aiScore = 0;
   let aiError = null;
+  let aiIsToxic = false;
+  let aiReasons = [];
+  let aiSuggestions = [];
 
   try {
-    const apiUrl = process.env.TOXICITY_API_URL || "https://toxicity.bhowmickmrinank.workers.dev/";
-
-    const response = await withBackoff(async () => {
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: cleanNormalized })
-      });
-
-      if (!res.ok) {
-        const errorBody = await res.json().catch(() => null);
-        const err = new Error(
-          errorBody?.message || `Toxicity API error: ${res.status}`
-        );
-        err.status = res.status;
-        err.details = errorBody || null;
-        throw err;
-      }
-
-      return res.json();
-    });
-
-    aiScore =
-      typeof response?.toxicity === "number"
-        ? response.toxicity
-        : typeof response?.score === "number"
-          ? response.score
-          : typeof response?.result === "number"
-            ? response.result
-            : typeof response?.result?.toxicity === "number"
-              ? response.result.toxicity
-              : 0;
-
+    const aiResponse = await getAiToxicityScore(text);
+    aiScore = aiResponse.toxicity;
+    aiIsToxic = aiResponse.isToxic;
+    aiReasons = aiResponse.reasons;
+    aiSuggestions = aiResponse.suggestions;
   } catch (err) {
     aiError = err.message;
     console.error("AI toxicity detection failed:", err.message);
@@ -694,17 +808,24 @@ export async function detectToxicity(text) {
   // Combine scores
   let finalScore = aiError 
     ? localScore 
-    : Math.max(localScore, (aiScore + localScore) / 2);
+    : Math.max(localScore, aiScore);
 
   // 🆕 Force toxic if hidden abuse detected
   if (hasHiddenAbuse) {
     finalScore = Math.max(finalScore, 0.7);
   }
 
-  const isToxic = finalScore > 0.5;
+  const isToxic = hasHiddenAbuse || localScore > 0.5 || (!aiError && (aiIsToxic || aiScore > 0.5)) || finalScore > 0.5;
 
-  const reasons = generateReasons(scores);
-  const suggestions = generateSuggestions(scores);
+  const reasons = [
+    ...generateReasons(scores),
+    ...aiReasons
+  ].filter((value, index, array) => array.indexOf(value) === index);
+
+  const suggestions = [
+    ...generateSuggestions(scores),
+    ...aiSuggestions
+  ].filter((value, index, array) => array.indexOf(value) === index);
 
   return {
     original: text,
@@ -730,3 +851,5 @@ export async function detectToxicity(text) {
     aiError: aiError || null
   };
 }
+
+module.exports = { detectToxicity };

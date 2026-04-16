@@ -145,7 +145,14 @@ exports.getMe = async (req, res) => {
 
 exports.getMyPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ authorId: req.user }).sort({ createdAt: -1 });
+    const posts = await Post.find({
+      authorId: req.user,
+      $or: [
+        { visibility: 'visible' },
+        { visibility: { $exists: false } },
+        { visibility: null },
+      ],
+    }).sort({ createdAt: -1 });
     return res.json({
       posts: posts.map((p) => ({
         ...p.toObject(),

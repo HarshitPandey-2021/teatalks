@@ -6,6 +6,8 @@ const detectToxicity = require('../services/toxicityService').detectToxicity;
 
 router.post('/register', register);
 router.post('/login', login);
+router.get('/me', protect, getMe);
+router.get('/my-posts', protect, getMyPosts);
 router.post('/detect-toxicity', async (req, res) => {
  try {
     const result = await detectToxicity(req.body.text);

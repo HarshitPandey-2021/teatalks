@@ -353,7 +353,14 @@ export default function ProfilePage() {
       const tags = editForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
       const res = await api.put(`/posts/${editModalPost._id}`, { text, category: editForm.category, tags })
       const updated = res?.data?.post
-      setMyPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updated } : p)))
+      const isVisible = updated?.visibility === 'visible' || updated?.visibility === undefined || updated?.visibility === null
+
+      if (updated && isVisible) {
+        setMyPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updated } : p)))
+      } else {
+        setMyPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
+        alert('Your post was hidden for review because it was detected as toxic.')
+      }
       closeEditModal()
     } catch (error) {
       alert(error?.response?.data?.message || 'Could not update post')

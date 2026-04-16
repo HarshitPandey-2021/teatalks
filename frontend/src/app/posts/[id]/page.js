@@ -47,13 +47,13 @@ async function submitVote(postId, vote) {
 }
 
 async function submitComment(postId, text) {
-  await api.post(`/posts/${postId}/comments`, { text })
-  return { ok: true }
+  const res = await api.post(`/posts/${postId}/comments`, { text })
+  return res.data
 }
 
 async function submitReply(postId, parentCommentId, text) {
-  await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text })
-  return { ok: true }
+  const res = await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text })
+  return res.data
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -681,31 +681,36 @@ export default function PostDetailPage() {
 
 
   const handleNewComment = useCallback(async (text) => {
-    await submitComment(params.id, text)
-    const newComment = {
-      _id: 'c_' + Date.now(),
-      anonymousEmoji: user.anonymousEmoji,
-      anonymousName: user.anonymousName,
-      text, score: 0,
-      createdAt: new Date().toISOString(),
-      userVote: null, replies: [],
-    }
-    setComments(prev => [newComment, ...prev])
-    setCommentCount(c => c + 1)
-  }, [user, params.id])
+    const result = await submitComment(params.id, text)
+    const createdComment = result?.comment
+    const isVisible = createdComment?.visibility === 'visible' || createdComment?.visibility === undefined || createdComment?.visibility === null
 
-  const handleReply = useCallback((parentId, text) => {
-    const newReply = {
-      _id: 'r_' + Date.now(),
-      anonymousEmoji: user.anonymousEmoji,
-      anonymousName: user.anonymousName,
-      text, score: 0,
-      createdAt: new Date().toISOString(),
-      userVote: null, replies: [],
+    if (createdComment && isVisible) {
+      setComments(prev => [{ ...createdComment, replies: createdComment.replies || [] }, ...prev])
+      setCommentCount(c => c + 1)
+      return
     }
-    setComments(prev => insertReplyRecursive(prev, parentId, newReply))
-    setCommentCount(c => c + 1)
-  }, [user])
+
+    if (result?.toxicity?.score >= 0.6 || createdComment?.moderationStatus === 'toxic') {
+      alert('Your comment was hidden for review because it was detected as toxic.')
+    }
+  }, [params.id])
+
+  const handleReply = useCallback(async (parentId, text) => {
+    const result = await submitReply(params.id, parentId, text)
+    const newReply = result?.comment
+    const isVisible = newReply?.visibility === 'visible' || newReply?.visibility === undefined || newReply?.visibility === null
+
+    if (newReply && isVisible) {
+      setComments(prev => insertReplyRecursive(prev, parentId, { ...newReply, replies: newReply.replies || [] }))
+      setCommentCount(c => c + 1)
+      return
+    }
+
+    if (result?.toxicity?.score >= 0.6 || newReply?.moderationStatus === 'toxic') {
+      alert('Your reply was hidden for review because it was detected as toxic.')
+    }
+  }, [params.id])
 
   const handleShare = useCallback(async () => {
     try { await navigator.clipboard.writeText(window.location.href) }
