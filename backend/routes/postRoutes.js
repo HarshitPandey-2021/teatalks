@@ -19,7 +19,7 @@ router.patch('/:id', protect, updatePost);
 router.delete('/:id', protect, deletePost);
 router.post('/:id/vote', protect, votePost);
 
-router.get('/:id/comments', listPostComments);
+router.get('/:id/comments', optionalProtect, listPostComments);
 router.post('/:id/comments', protect, createComment);
 router.post('/:postId/comments/:parentCommentId/replies', protect, createReply);
 

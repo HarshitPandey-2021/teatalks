@@ -231,7 +231,7 @@ export default function CreatePostPage() {
         }
       }
 
-      await api.post('/posts', {
+      const res = await api.post('/posts', {
         category: feedCategory,
         text: body.trim(),
         tags,
@@ -244,7 +244,11 @@ export default function CreatePostPage() {
         }
       })
 
-      setSuccess('Posted successfully! 🎉')
+      const createdPost = res?.data?.post
+      const toxicity = res?.data?.toxicity
+      const isVisible = createdPost?.visibility === 'visible' || createdPost?.visibility === undefined || createdPost?.visibility === null
+
+      setSuccess(!isVisible || toxicity?.score >= 0.6 ? 'Post submitted and hidden for admin review.' : 'Posted successfully!')
       setLoading(false)
       setTimeout(() => router.push('/feed'), 800)
     } catch (error) {

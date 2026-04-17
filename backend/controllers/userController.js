@@ -2,6 +2,7 @@ const User = require('../models/user');
 const Post = require('../models/posts');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const detectToxicity = require('../services/toxicityService').detectToxicity;
 
 const ADJECTIVES = [
   'Silent', 'Curious', 'Shadow', 'Midnight', 'Cool',
@@ -144,7 +145,14 @@ exports.getMe = async (req, res) => {
 
 exports.getMyPosts = async (req, res) => {
   try {
-    const posts = await Post.find({ authorId: req.user }).sort({ createdAt: -1 });
+    const posts = await Post.find({
+      authorId: req.user,
+      $or: [
+        { visibility: 'visible' },
+        { visibility: { $exists: false } },
+        { visibility: null },
+      ],
+    }).sort({ createdAt: -1 });
     return res.json({
       posts: posts.map((p) => ({
         ...p.toObject(),
@@ -156,3 +164,27 @@ exports.getMyPosts = async (req, res) => {
     return res.status(500).json({ message: err.message });
   }
 };
+
+exports.createPost= async (req, res) => {
+   try {
+    const { text } = req.body;
+
+    const toxicity = await detectToxicity(text);
+
+    if (toxicity.isToxic) {
+      return res.status(400).json({
+        message: "Toxic content detected",
+        toxicity
+      });
+    }
+
+    // continue normal logic
+    res.json({
+      message: "Post created successfully",
+      toxicity
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}

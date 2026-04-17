@@ -13,7 +13,7 @@ const adminActionSchema = new mongoose.Schema(
     },
     actionType: {
       type: String,
-      enum: ['warn_user', 'ban_user', 'unban_user', 'report_update'],
+      enum: ['warn_user', 'ban_user', 'unban_user', 'report_update', 'moderate_post', 'moderate_comment'],
       required: true,
     },
     reason: {
