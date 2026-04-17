@@ -12,7 +12,12 @@ import ReportModal from '@/components/ReportModal'
 import PostCard from '@/components/PostCard'
 import api from '@/lib/axios'
 
-
+/* ─────────────────────────────────────────────────────────────
+   API PLACEHOLDERS
+   Replace these with your actual API calls, e.g.:
+     const post = await fetch(`/api/posts/${id}`).then(r => r.json())
+     const comments = await fetch(`/api/posts/${id}/comments`).then(r => r.json())
+───────────────────────────────────────────────────────────── */
 
 async function fetchPost(id) {
   const res = await api.get(`/posts/${id}`)
@@ -42,8 +47,9 @@ async function fetchRelatedPosts(postId, category) {
 
 async function submitVote(postId, vote) {
   const mappedVote = vote === 'up' ? 1 : vote === 'down' ? -1 : 0
-  const res = await api.post(`/posts/${postId}/vote`, { value: mappedVote })
-  return res.data.post
+  if (!mappedVote) return { ok: true }
+  await api.post(`/posts/${postId}/vote`, { vote: mappedVote })
+  return { ok: true }
 }
 
 async function submitComment(postId, text) {
@@ -217,7 +223,6 @@ function MiniPulse() {
     }, 4500)
     return () => clearInterval(t)
   }, [])
-  
 
   return (
     <div style={{ padding: '0.5rem 1.25rem 0.75rem', borderTop: '1px solid rgba(234,225,213,0.2)' }}>
@@ -630,21 +635,15 @@ export default function PostDetailPage() {
   /* Load post + comments */
   useEffect(() => {
     if (!params.id) return
-
-    const loadData = async () => {
-      setPageLoading(true)
-      const [p, c] = await Promise.all([fetchPost(params.id), fetchComments(params.id)])
+    setPageLoading(true)
+    Promise.all([fetchPost(params.id), fetchComments(params.id)]).then(([p, c]) => {
       setPost(p)
-      setComments(c)
-      setCommentCount(p?.commentCount || c.length)
       setPostScore(p?.score || 0)
-      setPostVote(p?.userVote === 1 ? 'up' : p?.userVote === -1 ? 'down' : null)
+      setCommentCount(p?.commentCount || 0)
+      setComments(c)
       setPageLoading(false)
-    }
-
-    loadData()
+    })
   }, [params.id])
-
 
   /* Auth guard */
   useEffect(() => {
@@ -653,32 +652,13 @@ export default function PostDetailPage() {
 
   const handlePostVote = useCallback((dir) => {
     const prev = postVote
-    let newVote = null
-    let delta = 0
-
-    if (prev === dir) {
-      newVote = null
-      delta = dir === 'up' ? -1 : 1
-    } else {
-      newVote = dir
-      delta = prev === null ? (dir === 'up' ? 1 : -1) : (dir === 'up' ? 2 : -2)
-    }
-
+    let newVote, delta = 0
+    if (prev === dir) { newVote = null; delta = dir === 'up' ? -1 : 1 }
+    else { newVote = dir; delta = prev === null ? (dir === 'up' ? 1 : -1) : (dir === 'up' ? 2 : -2) }
     setPostVote(newVote)
-    setPostScore((score) => score + delta)
-
-    submitVote(params.id, newVote)
-      .then((updatedPost) => {
-        setPost((current) => current ? { ...current, ...updatedPost } : updatedPost)
-        setPostVote(updatedPost?.userVote === 1 ? 'up' : updatedPost?.userVote === -1 ? 'down' : null)
-        setPostScore(updatedPost?.score || 0)
-      })
-      .catch(() => {
-        setPostVote(prev)
-        setPostScore((score) => score - delta)
-      })
-  }, [params.id, postVote])
-
+    setPostScore(s => s + delta)
+    submitVote(params.id, newVote).catch(() => {})
+  }, [postVote, params.id])
 
   const handleNewComment = useCallback(async (text) => {
     const result = await submitComment(params.id, text)

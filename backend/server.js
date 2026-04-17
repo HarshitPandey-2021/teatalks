@@ -1,6 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const cors = require('cors'); 
+const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
@@ -14,10 +14,7 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors({
-  origin: "http://localhost:3000",   // must be explicit, not '*'
-  credentials: true                  // allow cookies/authorization headers
-}));
+app.use(cors());
 app.use(helmet());
 
 const authLimiter = rateLimit({

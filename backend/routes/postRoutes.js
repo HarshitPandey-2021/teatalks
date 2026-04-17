@@ -1,6 +1,5 @@
 const express = require('express');
 const protect = require('../middleware/authMiddleware');
-const { optionalProtect } = require('../middleware/authMiddleware');
 const {
   createPost,
   listPosts,
@@ -13,9 +12,9 @@ const { createComment, listPostComments, createReply } = require('../controllers
 
 const router = express.Router();
 
-router.get('/', optionalProtect, listPosts);
+router.get('/', listPosts);
 router.post('/', protect, createPost);
-router.get('/:id', optionalProtect, getPostById);
+router.get('/:id', getPostById);
 router.patch('/:id', protect, updatePost);
 router.delete('/:id', protect, deletePost);
 router.post('/:id/vote', protect, votePost);
