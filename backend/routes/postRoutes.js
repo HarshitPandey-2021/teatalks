@@ -1,5 +1,6 @@
 const express = require('express');
 const protect = require('../middleware/authMiddleware');
+const optionalProtect = protect.optionalProtect;
 const {
   createPost,
   listPosts,

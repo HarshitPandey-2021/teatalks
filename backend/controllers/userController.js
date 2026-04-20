@@ -52,6 +52,10 @@ function normalizeEmail(email = '') {
   return email.trim().toLowerCase();
 }
 
+function escapeRegExp(value = '') {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // REGISTER
 exports.register = async (req, res) => {
   try {
@@ -107,8 +111,10 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
 
-    // Find user
-    const user = await User.findOne({ email: normalizedEmail });
+    // Find user by exact email, case-insensitive for older mixed-case records.
+    const user = await User.findOne({
+      email: { $regex: `^${escapeRegExp(normalizedEmail)}$`, $options: 'i' },
+    });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -119,7 +125,20 @@ exports.login = async (req, res) => {
     }
 
     // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = false;
+    const looksHashed = typeof user.password === 'string' && user.password.startsWith('$2');
+
+    if (looksHashed) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      // Backward-compatibility path for legacy plaintext passwords.
+      isMatch = password === user.password;
+      if (isMatch) {
+        user.password = await bcrypt.hash(password, 10);
+        await user.save();
+      }
+    }
+
     if (!isMatch) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }

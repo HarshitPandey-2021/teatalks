@@ -631,6 +631,7 @@ export default function PostDetailPage() {
   const [postScore, setPostScore] = useState(0)
   const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [reportError, setReportError] = useState('')
 
   /* Load post + comments */
   useEffect(() => {
@@ -1069,9 +1070,29 @@ export default function PostDetailPage() {
         <ReportModal
           isOpen={reportOpen}
           onClose={() => setReportOpen(false)}
-          onSubmit={async (data) => console.log('Report:', post._id, data)}
+          onSubmit={async (data) => {
+            setReportError('')
+            try {
+              await api.post('/reports', {
+                targetId: post._id,
+                targetType: 'Post',
+                reason: data.description
+                  ? `${data.reason}: ${data.description}`.slice(0, 500)
+                  : data.reason,
+              })
+            } catch (error) {
+              const message = error?.response?.data?.message || 'Failed to submit report'
+              setReportError(message)
+              throw error
+            }
+          }}
           targetType="post"
         />
+        {reportError ? (
+          <div style={{ maxWidth: '46rem', margin: '0.5rem auto 0', padding: '0 1rem', color: '#b91c1c', fontSize: '0.8rem', fontWeight: 600 }}>
+            {reportError}
+          </div>
+        ) : null}
 
         {/* Copied toast */}
         <AnimatePresence>

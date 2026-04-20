@@ -304,52 +304,108 @@ exports.getOverview = async (req, res) => {
 exports.listFlaggedContent = async (req, res) => {
   try {
     const { status = 'pending', type = 'all' } = req.query;
-    const query = {
-      visibility: 'hidden',
-      adminReviewStatus: status === 'all' ? { $in: ['pending', 'reviewed'] } : status,
+    const reportStatusFilter =
+      status === 'pending'
+        ? 'pending'
+        : status === 'reviewed'
+          ? { $in: ['reviewed', 'resolved'] }
+          : { $in: ['pending', 'reviewed', 'resolved'] };
+
+    const reportQuery = {
+      status: reportStatusFilter,
+      ...(type === 'all' ? {} : { targetType: type }),
     };
 
-    const tasks = [];
-    if (type === 'all' || type === 'Post') {
-      tasks.push(Post.find(query).sort({ createdAt: -1 }).limit(200));
-    } else {
-      tasks.push(Promise.resolve([]));
-    }
-    if (type === 'all' || type === 'Comment') {
-      tasks.push(Comment.find(query).sort({ createdAt: -1 }).limit(200));
-    } else {
-      tasks.push(Promise.resolve([]));
-    }
-
-    const [posts, comments] = await Promise.all(tasks);
-    const contentIds = [
-      ...posts.map((item) => item._id),
-      ...comments.map((item) => item._id),
-    ];
-
-    const reportCounts = await Report.aggregate([
-      {
-        $match: {
-          targetId: { $in: contentIds },
-          ...(type === 'all' ? {} : { targetType: type }),
-        }
-      },
+    const groupedReports = await Report.aggregate([
+      { $match: reportQuery },
       {
         $group: {
-          _id: { targetId: '$targetId', targetType: '$targetType' },
-          reportCount: { $sum: 1 }
-        }
-      }
+          _id: { targetType: '$targetType', targetId: '$targetId' },
+          reportCount: { $sum: 1 },
+        },
+      },
     ]);
 
+    const postIdsFromReports = groupedReports
+      .filter((item) => item._id.targetType === 'Post')
+      .map((item) => item._id.targetId);
+    const commentIdsFromReports = groupedReports
+      .filter((item) => item._id.targetType === 'Comment')
+      .map((item) => item._id.targetId);
+
+    const reviewStatusFilter = status === 'all' ? { $in: ['pending', 'reviewed', 'none'] } : status;
+    const hiddenQuery = {
+      visibility: 'hidden',
+      adminReviewStatus: reviewStatusFilter,
+    };
+
+    const postQuery =
+      type === 'Comment'
+        ? null
+        : {
+            $or: [
+              hiddenQuery,
+              ...(postIdsFromReports.length ? [{ _id: { $in: postIdsFromReports } }] : []),
+            ],
+          };
+
+    const commentQuery =
+      type === 'Post'
+        ? null
+        : {
+            $or: [
+              hiddenQuery,
+              ...(commentIdsFromReports.length ? [{ _id: { $in: commentIdsFromReports } }] : []),
+            ],
+          };
+
+    const [posts, comments] = await Promise.all([
+      postQuery ? Post.find(postQuery).sort({ createdAt: -1 }).limit(200) : Promise.resolve([]),
+      commentQuery ? Comment.find(commentQuery).sort({ createdAt: -1 }).limit(200) : Promise.resolve([]),
+    ]);
+
+    const contentIds = [...posts.map((item) => item._id), ...comments.map((item) => item._id)];
+
     const reportMap = new Map(
-      reportCounts.map((item) => [`${String(item._id.targetType)}:${String(item._id.targetId)}`, item.reportCount])
+      groupedReports.map((item) => [
+        `${String(item._id.targetType)}:${String(item._id.targetId)}`,
+        item.reportCount,
+      ])
     );
+
+    // Include report counts for hidden items that may not appear in the grouped report set.
+    if (contentIds.length > 0) {
+      const missingReportCounts = await Report.aggregate([
+        {
+          $match: {
+            targetId: { $in: contentIds },
+            ...(type === 'all' ? {} : { targetType: type }),
+          },
+        },
+        {
+          $group: {
+            _id: { targetId: '$targetId', targetType: '$targetType' },
+            reportCount: { $sum: 1 },
+          },
+        },
+      ]);
+      missingReportCounts.forEach((item) => {
+        const key = `${String(item._id.targetType)}:${String(item._id.targetId)}`;
+        if (!reportMap.has(key)) {
+          reportMap.set(key, item.reportCount);
+        }
+      });
+    }
 
     const items = [
       ...posts.map((item) => buildFlaggedItem(item, 'Post', reportMap.get(`Post:${String(item._id)}`) || 0)),
       ...comments.map((item) => buildFlaggedItem(item, 'Comment', reportMap.get(`Comment:${String(item._id)}`) || 0)),
-    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    ]
+      .filter((item) => {
+        if (status === 'all') return true;
+        return item.status === status;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return res.json({ items });
   } catch (error) {

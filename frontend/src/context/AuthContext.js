@@ -12,8 +12,8 @@ function readStoredUser() {
   }
 
   try {
-    const savedUser = localStorage.getItem('teatalks_user')
-    const savedToken = localStorage.getItem('teatalks_token')
+    const savedUser = sessionStorage.getItem('teatalks_user')
+    const savedToken = sessionStorage.getItem('teatalks_token')
 
     if (!savedUser || !savedToken) {
       return null
@@ -21,8 +21,8 @@ function readStoredUser() {
 
     return JSON.parse(savedUser)
   } catch {
-    localStorage.removeItem('teatalks_user')
-    localStorage.removeItem('teatalks_token')
+    sessionStorage.removeItem('teatalks_user')
+    sessionStorage.removeItem('teatalks_token')
     return null
   }
 }
@@ -38,8 +38,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const persistSession = useCallback((token, nextUser) => {
-    localStorage.setItem('teatalks_token', token)
-    localStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+    sessionStorage.setItem('teatalks_token', token)
+    sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
     setUser(nextUser)
   }, [])
 
@@ -66,8 +66,8 @@ export function AuthProvider({ children }) {
   }, [persistSession, router])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('teatalks_token')
-    localStorage.removeItem('teatalks_user')
+    sessionStorage.removeItem('teatalks_token')
+    sessionStorage.removeItem('teatalks_user')
     setUser(null)
     router.push('/login')
   }, [router])

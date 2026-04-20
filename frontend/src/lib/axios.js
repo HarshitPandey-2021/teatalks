@@ -12,7 +12,7 @@ const api = axios.create({
 // ── Attach JWT to every request ──
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('teatalks_token')
+    const token = sessionStorage.getItem('teatalks_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -25,8 +25,8 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('teatalks_token')
-      localStorage.removeItem('teatalks_user')
+      sessionStorage.removeItem('teatalks_token')
+      sessionStorage.removeItem('teatalks_user')
       window.location.href = '/login'
     }
     return Promise.reject(error)

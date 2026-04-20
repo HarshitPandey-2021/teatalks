@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import ReportModal from './ReportModal'
+import api from '@/lib/axios'
 
 const CAT_STYLES = {
   Academic: { bg: 'rgba(176,13,106,0.06)', color: '#b00d6a', border: 'rgba(176,13,106,0.10)' },
@@ -178,6 +179,7 @@ export default function PostCard({
   const [vote, setVote] = useState(userVote)
   const [sc, setSc] = useState(score)
   const [reportOpen, setReportOpen] = useState(false)
+  const [reportError, setReportError] = useState('')
   const [votePulse, setVotePulse] = useState(null)
   const [shareFlash, setShareFlash] = useState(false)
   const router = useRouter()
@@ -542,9 +544,36 @@ export default function PostCard({
       <ReportModal
         isOpen={reportOpen}
         onClose={() => setReportOpen(false)}
-        onSubmit={async (data) => console.log('Report:', _id, data)}
+        onSubmit={async (data) => {
+          setReportError('')
+          try {
+            await api.post('/reports', {
+              targetId: _id,
+              targetType: 'Post',
+              reason: data.description
+                ? `${data.reason}: ${data.description}`.slice(0, 500)
+                : data.reason,
+            })
+          } catch (error) {
+            const message = error?.response?.data?.message || 'Failed to submit report'
+            setReportError(message)
+            throw error
+          }
+        }}
         targetType="post"
       />
+      {reportError ? (
+        <div
+          style={{
+            marginTop: '0.5rem',
+            color: '#b91c1c',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+          }}
+        >
+          {reportError}
+        </div>
+      ) : null}
     </>
   )
 }
