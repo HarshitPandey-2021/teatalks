@@ -1,23 +1,31 @@
 const Post = require('../models/posts');
 const Comment = require('../models/comment');
 const User = require('../models/user');
+const PostVote = require('../models/postVote');
 const mongoose = require('mongoose');
 const {
   buildToxicityModeration,
   buildVoteModerationFields,
 } = require('../services/contentModerationService');
 
-async function serializePost(postDoc) {
+async function serializePost(postDoc, viewerUserId = null) {
   const post = postDoc.toObject ? postDoc.toObject() : postDoc;
   const commentCount = await Comment.countDocuments({ postId: post._id });
   const safeImageUrl =
     typeof post.image === 'string' && post.image.startsWith('blob:')
       ? null
       : post.image || null;
+  let userVote = null;
+  if (viewerUserId) {
+    const voteDoc = await PostVote.findOne({ postId: post._id, userId: viewerUserId }).select('value');
+    if (voteDoc?.value === 1) userVote = 'up';
+    if (voteDoc?.value === -1) userVote = 'down';
+  }
   return {
     ...post,
     imageUrl: safeImageUrl,
     score: post.votes || 0,
+    userVote,
     commentCount,
   };
 }
@@ -155,23 +163,33 @@ exports.votePost = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
     const { vote } = req.body;
-    if (![1, -1].includes(vote)) {
-      return res.status(400).json({ message: 'vote must be 1 or -1' });
+    if (![1, -1, 0].includes(vote)) {
+      return res.status(400).json({ message: 'vote must be 1, -1, or 0' });
     }
-
-    const post = await Post.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { votes: vote } },
-      { new: true }
-    );
+    const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    const score = await Vote.aggregate([
-      { $match: { postId: post._id } },
-      { $group: { _id: null, total: { $sum: "$value" } } }
-    ]);
-    const totalScore = score[0]?.total || 0;
-    post.votes = totalScore;
+    const existingVote = await PostVote.findOne({ postId: post._id, userId: req.user });
+    const previousValue = existingVote?.value || 0;
+    const nextValue = vote;
+    const delta = nextValue - previousValue;
+
+    if (nextValue === 0) {
+      if (existingVote) {
+        await PostVote.deleteOne({ _id: existingVote._id });
+      }
+    } else if (existingVote) {
+      existingVote.value = nextValue;
+      await existingVote.save();
+    } else {
+      await PostVote.create({ postId: post._id, userId: req.user, value: nextValue });
+    }
+
+    if (delta !== 0) {
+      post.votes = (post.votes || 0) + delta;
+    }
+
+    const totalScore = post.votes || 0;
 
     const voteModerationFields = buildVoteModerationFields(totalScore, post.moderationStatus);
     if (voteModerationFields) {
@@ -185,7 +203,7 @@ exports.votePost = async (req, res) => {
     }
     await post.save();
 
-    return res.json({ post: await serializePost(post, userId) });
+    return res.json({ post: await serializePost(post, req.user) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

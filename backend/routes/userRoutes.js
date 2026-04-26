@@ -1,14 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe, getMyPosts } = require('../controllers/userController');
+const {
+  register,
+  login,
+  getMe,
+  updateMe,
+  getMyPosts,
+  getMyActivity,
+  forgotPassword,
+  verifyForgotPasswordOtp,
+  resetPasswordWithOtp,
+} = require('../controllers/userController');
 const protect = require('../middleware/authMiddleware');
 const detectToxicity = require('../services/toxicityService').detectToxicity;
 
 router.post('/register', register);
 router.post('/login', login);
+router.post('/forgot-password', forgotPassword);
+router.post('/forgot-password/verify-otp', verifyForgotPasswordOtp);
+router.post('/forgot-password/reset', resetPasswordWithOtp);
 router.get('/me', protect, getMe);
+router.patch('/me', protect, updateMe);
 router.get('/my-posts', protect, getMyPosts);
-router.post('/detect-toxicity', async (req, res) => {
+router.get('/my-activity', protect, getMyActivity);
+router.post('/detect-toxicity', protect, async (req, res) => {
  try {
     const result = await detectToxicity(req.body.text);
     res.json(result);

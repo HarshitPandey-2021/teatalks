@@ -153,9 +153,7 @@ const MOCK_COMMENTS = {
   ],
 }
 
-const TRENDING_TAGS = [
-  'DBMS', 'LibraryAC', 'MessHeist', 'Convocation', 'WiFiWoes', 'HostelLife',
-]
+const TRENDING_TAGS = []
 
 /* ─────────────────────────────────────────────────────────────
    CONSTANTS
@@ -202,27 +200,23 @@ function insertReplyRecursive(comments, parentId, newReply) {
    MINI LIVE PULSE
 ───────────────────────────────────────────────────────────── */
 
-const PULSE_TEMPLATES = [
-  () => ({ icon: '🟢', text: `${Math.floor(Math.random() * 5) + 2} people viewing this` }),
-  () => ({ icon: '💬', text: `${Math.floor(Math.random() * 4) + 1} new replies recently` }),
-  () => ({ icon: '📈', text: `Gained +${Math.floor(Math.random() * 15) + 5} votes today` }),
-  () => ({ icon: '✨', text: `${Math.floor(Math.random() * 3) + 1} people typing a reply…` }),
-]
-
-function MiniPulse() {
+function MiniPulse({ postScore = 0, commentCount = 0 }) {
+  const templates = useMemo(() => [
+    { icon: '🟢', text: `${commentCount} comments in this discussion` },
+    { icon: '💬', text: `${postScore >= 0 ? '+' : ''}${postScore} score so far` },
+    { icon: '📈', text: 'Live data from current post activity' },
+  ], [commentCount, postScore])
   const [idx, setIdx] = useState(0)
-  const [msg, setMsg] = useState(PULSE_TEMPLATES[0]())
 
   useEffect(() => {
     const t = setInterval(() => {
       setIdx(prev => {
-        const next = (prev + 1) % PULSE_TEMPLATES.length
-        setMsg(PULSE_TEMPLATES[next]())
+        const next = (prev + 1) % templates.length
         return next
       })
     }, 4500)
     return () => clearInterval(t)
-  }, [])
+  }, [templates])
 
   return (
     <div style={{ padding: '0.5rem 1.25rem 0.75rem', borderTop: '1px solid rgba(234,225,213,0.2)' }}>
@@ -238,8 +232,8 @@ function MiniPulse() {
             fontSize: '0.75rem', color: '#b3a898', fontWeight: 500,
           }}
         >
-          <span style={{ fontSize: '0.75rem', lineHeight: 1 }}>{msg.icon}</span>
-          <span>{msg.text}</span>
+          <span style={{ fontSize: '0.75rem', lineHeight: 1 }}>{templates[idx].icon}</span>
+          <span>{templates[idx].text}</span>
         </motion.div>
       </AnimatePresence>
     </div>
@@ -535,8 +529,11 @@ function CommentRow({ comment, postAuthorName, user, onReply, postId, depth = 0 
    RELATED POSTS SECTION
 ───────────────────────────────────────────────────────────── */
 
-function RelatedPosts({ currentPostId, currentCategory }) {
+function RelatedPosts({ currentPostId, currentCategory, currentTags = [] }) {
   const [posts, setPosts] = useState([])
+  const resolvedTags = currentTags.length
+    ? currentTags
+    : Array.from(new Set(posts.flatMap((p) => p.tags || []))).slice(0, 6)
 
   useEffect(() => {
     fetchRelatedPosts(currentPostId, currentCategory).then(setPosts)
@@ -593,7 +590,7 @@ function RelatedPosts({ currentPostId, currentCategory }) {
           overflowX: 'auto', paddingBottom: 2,
           scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
         }}>
-          {TRENDING_TAGS.map(tag => (
+          {resolvedTags.map(tag => (
             <Link key={tag} href={`/search?q=${tag}`} style={{
               padding: '0.3rem 0.75rem', borderRadius: 9999,
               background: 'rgba(242,234,222,0.6)',
@@ -636,7 +633,6 @@ export default function PostDetailPage() {
   /* Load post + comments */
   useEffect(() => {
     if (!params.id) return
-    setPageLoading(true)
     Promise.all([fetchPost(params.id), fetchComments(params.id)]).then(([p, c]) => {
       setPost(p)
       setPostScore(p?.score || 0)
@@ -985,7 +981,7 @@ export default function PostDetailPage() {
             </div>
 
             {/* Live pulse */}
-            <MiniPulse />
+            <MiniPulse postScore={postScore} commentCount={commentCount} />
           </motion.article>
 
           {/* ════════════ DISCUSSION ════════════ */}
@@ -1063,7 +1059,7 @@ export default function PostDetailPage() {
           </motion.section>
 
           {/* ════════════ RELATED ════════════ */}
-          <RelatedPosts currentPostId={post._id} currentCategory={post.category} />
+          <RelatedPosts currentPostId={post._id} currentCategory={post.category} currentTags={post.tags || []} />
         </main>
 
         {/* Report Modal */}

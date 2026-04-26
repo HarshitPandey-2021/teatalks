@@ -48,6 +48,18 @@ const userSchema = new mongoose.Schema(
     bannedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
+    },
+    branch: {
+      type: String,
+      default: 'CSE',
+      trim: true,
+      maxlength: 80
+    },
+    year: {
+      type: String,
+      default: '1st Year',
+      trim: true,
+      maxlength: 40
     }
   },
   { timestamps: true}

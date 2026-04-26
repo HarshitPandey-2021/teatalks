@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import api from '@/lib/axios'
 
 const ACTIVITY = [
   {
@@ -64,6 +65,13 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [newCount, setNewCount] = useState(47)
   const [tickerIndex, setTickerIndex] = useState(0)
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [forgotStep, setForgotStep] = useState('email')
+  const [forgotForm, setForgotForm] = useState({ email: '', otp: '', resetToken: '', newPassword: '', confirmPassword: '' })
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotMessage, setForgotMessage] = useState('')
+  const [showNewPw, setShowNewPw] = useState(false)
+  const [showConfirmPw, setShowConfirmPw] = useState(false)
 
   const { login, user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -106,6 +114,80 @@ export default function LoginPage() {
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.')
       setLoading(false)
+    }
+  }
+
+  const closeForgotModal = () => {
+    setForgotOpen(false)
+    setForgotStep('email')
+    setForgotLoading(false)
+    setForgotMessage('')
+    setForgotForm({ email: '', otp: '', resetToken: '', newPassword: '', confirmPassword: '' })
+  }
+
+  const handleForgotSendOtp = async () => {
+    if (!forgotForm.email.trim()) return
+    setForgotLoading(true)
+    setForgotMessage('')
+    try {
+      await api.post('/users/forgot-password', { email: forgotForm.email.trim() })
+      setForgotStep('otp')
+      setForgotMessage('OTP sent to your email. It may take a minute to arrive.')
+    } catch (err) {
+      setForgotMessage(err?.response?.data?.message || 'Could not send OTP')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  const handleForgotVerifyOtp = async () => {
+    if (!forgotForm.otp.trim()) return
+    setForgotLoading(true)
+    setForgotMessage('')
+    try {
+      const res = await api.post('/users/forgot-password/verify-otp', {
+        email: forgotForm.email.trim(),
+        otp: forgotForm.otp.trim(),
+      })
+      setForgotForm((prev) => ({ ...prev, resetToken: res.data?.resetToken || '' }))
+      setForgotStep('reset')
+      setForgotMessage('OTP verified. Set your new password.')
+    } catch (err) {
+      setForgotMessage(err?.response?.data?.message || 'Invalid or expired OTP')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
+  const handleForgotResetPassword = async () => {
+    const newPassword = forgotForm.newPassword
+    const confirmPassword = forgotForm.confirmPassword
+    if (newPassword.length < 8) {
+      setForgotMessage('Password must be at least 8 characters.')
+      return
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+      setForgotMessage('Use upper, lower, number, and special character.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setForgotMessage('Passwords do not match.')
+      return
+    }
+    setForgotLoading(true)
+    setForgotMessage('')
+    try {
+      await api.post('/users/forgot-password/reset', {
+        email: forgotForm.email.trim(),
+        resetToken: forgotForm.resetToken,
+        newPassword,
+      })
+      setForgotStep('done')
+      setForgotMessage('Your password has been changed successfully.')
+    } catch (err) {
+      setForgotMessage(err?.response?.data?.message || 'Could not reset password')
+    } finally {
+      setForgotLoading(false)
     }
   }
 
@@ -698,7 +780,7 @@ export default function LoginPage() {
 
             <h1 className="tt-headline">
               Welcome back.<br />
-              <em>Your campus didn't<br />stop talking.</em>
+              <em>Your campus didn&apos;t<br />stop talking.</em>
             </h1>
             <p className="tt-subline">
               {newCount} new posts since you last logged in.
@@ -728,7 +810,7 @@ export default function LoginPage() {
               <div className="tt-field">
                 <div className="tt-label-row">
                   <label className="tt-label" htmlFor="li-pw">Password</label>
-                  <Link href="/forgot-password" className="tt-forgot">Forgot?</Link>
+                  <button type="button" className="tt-forgot" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setForgotOpen(true)}>Forgot?</button>
                 </div>
                 <div className="tt-pw-wrap">
                   <input
@@ -821,6 +903,63 @@ export default function LoginPage() {
           </div>
         </div>
       </main>
+
+      <AnimatePresence>
+        {forgotOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) closeForgotModal() }}
+            style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,16,12,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              style={{ width: '100%', maxWidth: 520, borderRadius: 18, background: '#fff8f1', border: '1px solid rgba(180,140,100,0.18)', padding: '1rem' }}
+            >
+              <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.1rem', fontWeight: 800, color: '#3d2f1e', marginBottom: '0.35rem' }}>Reset Password</h3>
+              <p style={{ fontSize: '0.82rem', color: '#7b6553', marginBottom: '0.9rem' }}>Secure OTP reset powered by your registered email.</p>
+              {forgotMessage && <div className="tt-error" style={{ marginBottom: '0.75rem' }}>{forgotMessage}</div>}
+
+              {forgotStep === 'email' && (
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
+                  <input className="tt-input" type="email" placeholder="Enter registered email" value={forgotForm.email} onChange={(e) => setForgotForm((p) => ({ ...p, email: e.target.value }))} />
+                  <button className="tt-cta" type="button" onClick={handleForgotSendOtp} disabled={forgotLoading}>{forgotLoading ? 'Sending OTP...' : 'Send OTP'}</button>
+                </div>
+              )}
+
+              {forgotStep === 'otp' && (
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
+                  <input className="tt-input" type="text" placeholder="Enter OTP" value={forgotForm.otp} onChange={(e) => setForgotForm((p) => ({ ...p, otp: e.target.value }))} />
+                  <button className="tt-cta" type="button" onClick={handleForgotVerifyOtp} disabled={forgotLoading}>{forgotLoading ? 'Verifying...' : 'Verify OTP'}</button>
+                </div>
+              )}
+
+              {forgotStep === 'reset' && (
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
+                  <div className="tt-pw-wrap">
+                    <input className="tt-input" type={showNewPw ? 'text' : 'password'} placeholder="New password" value={forgotForm.newPassword} onChange={(e) => setForgotForm((p) => ({ ...p, newPassword: e.target.value }))} style={{ paddingRight: '2.5rem' }} />
+                    <button type="button" className="tt-pw-toggle" onClick={() => setShowNewPw((v) => !v)}>{showNewPw ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                  </div>
+                  <div className="tt-pw-wrap">
+                    <input className="tt-input" type={showConfirmPw ? 'text' : 'password'} placeholder="Confirm password" value={forgotForm.confirmPassword} onChange={(e) => setForgotForm((p) => ({ ...p, confirmPassword: e.target.value }))} style={{ paddingRight: '2.5rem' }} />
+                    <button type="button" className="tt-pw-toggle" onClick={() => setShowConfirmPw((v) => !v)}>{showConfirmPw ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                  </div>
+                  <button className="tt-cta" type="button" onClick={handleForgotResetPassword} disabled={forgotLoading}>{forgotLoading ? 'Updating...' : 'Update Password'}</button>
+                </div>
+              )}
+
+              {forgotStep === 'done' && (
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
+                  <button className="tt-cta" type="button" onClick={closeForgotModal}>OK, Login Now</button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

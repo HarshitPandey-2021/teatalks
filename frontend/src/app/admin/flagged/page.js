@@ -134,7 +134,7 @@ export default function AdminFlaggedPage() {
 
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', background: '#efe7dc', borderRadius: 9999, padding: 4 }}>
-                {['pending', 'reviewed'].map((s) => (
+                {['pending', 'reviewed', 'all'].map((s) => (
                   <button key={s} onClick={() => setStatusFilter(s)} style={{ padding: '0.5rem 1.25rem', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 700, textTransform: 'capitalize', background: statusFilter === s ? '#ffffff' : 'transparent', color: statusFilter === s ? '#322e28' : '#5f5b53', boxShadow: statusFilter === s ? '0 2px 8px rgba(0,0,0,0.06)' : 'none' }}>{s}</button>
                 ))}
               </div>
@@ -169,7 +169,7 @@ export default function AdminFlaggedPage() {
                     </div>
                   </div>
 
-                  <p style={{ fontSize: '1rem', color: '#322e28', lineHeight: 1.65, marginBottom: '1rem', fontStyle: item.type === 'comment' ? 'italic' : 'normal' }}>"{item.text}"</p>
+                  <p style={{ fontSize: '1rem', color: '#322e28', lineHeight: 1.65, marginBottom: '1rem', fontStyle: item.type === 'comment' ? 'italic' : 'normal' }}>&quot;{item.text}&quot;</p>
 
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '1.5rem' }}>
                     {item.reasons.map((r) => (

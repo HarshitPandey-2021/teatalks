@@ -12,26 +12,6 @@ const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Sc
 const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']
 const CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews']
 
-const ACTIVITY_FEED = [
-  { id: 'a1', type: 'upvote', icon: 'arrow_upward', text: 'Your DBMS post received 12 new upvotes', time: '2h ago', color: '#ec4899' },
-  { id: 'a2', type: 'comment', icon: 'chat_bubble', text: 'Someone replied to your WiFi rant', time: '4h ago', color: '#fb923c' },
-  { id: 'a3', type: 'milestone', icon: 'emoji_events', text: 'You crossed 1,800 karma! 🎉', time: '8h ago', color: '#f59e0b' },
-  { id: 'a4', type: 'streak', icon: 'local_fire_department', text: '7-day streak! Keep the fire going 🔥', time: '1d ago', color: '#ef4444' },
-  { id: 'a5', type: 'upvote', icon: 'trending_up', text: 'Placement post is trending in Academic', time: '1d ago', color: '#ec4899' },
-  { id: 'a6', type: 'badge', icon: 'military_tech', text: 'You earned "Going Viral" badge 🚀', time: '2d ago', color: '#8b5cf6' },
-]
-
-const BADGES = [
-  { id: 'first-post', icon: '🎯', label: 'First Post', desc: 'Published your first anonymous post', earned: true, earnedDate: '2024-01-15' },
-  { id: 'karma-100', icon: '⭐', label: 'Rising Star', desc: 'Earned 100+ karma', earned: true, earnedDate: '2024-01-18' },
-  { id: 'streak-7', icon: '🔥', label: 'On Fire', desc: '7-day posting streak', earned: true, earnedDate: '2024-02-01' },
-  { id: 'karma-1000', icon: '💎', label: 'Diamond Mind', desc: 'Earned 1000+ karma', earned: true, earnedDate: '2024-02-10' },
-  { id: 'comments-50', icon: '💬', label: 'Chatterbox', desc: '50+ comments posted', earned: false, progress: 47, total: 50 },
-  { id: 'viral', icon: '🚀', label: 'Going Viral', desc: 'Get 500+ upvotes on a post', earned: true, earnedDate: '2024-02-12' },
-  { id: 'streak-30', icon: '👑', label: 'Legendary', desc: '30-day posting streak', earned: false, progress: 7, total: 30 },
-  { id: 'helper', icon: '🤝', label: 'Campus Helper', desc: 'Get 20 "helpful" reactions', earned: false, progress: 12, total: 20 },
-]
-
 const STREAK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const CAT_COLORS = { Academic: '#b00d6a', Rants: '#b41340', Reviews: '#ea6c00', Hostel: '#9a3412', General: '#16a34a' }
 
@@ -231,6 +211,7 @@ export default function ProfilePage() {
   const [editLoading, setEditLoading] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [activityFeed, setActivityFeed] = useState([])
 
   // Editable fields
   const [editBranch, setEditBranch] = useState(user?.branch || 'CSE')
@@ -256,27 +237,39 @@ export default function ProfilePage() {
     }
   }, [showSettings, user])
 
-  const handleSaveSettings = () => {
-    // If updateProfile exists in auth context, call it
-    if (typeof updateProfile === 'function') {
-      updateProfile({ branch: editBranch, year: editYear })
+  const handleSaveSettings = async () => {
+    try {
+      if (typeof updateProfile === 'function') {
+        await updateProfile({ branch: editBranch, year: editYear })
+      }
+      setSettingsSaved(true)
+      setSettingsChanged(false)
+      setTimeout(() => {
+        setSettingsSaved(false)
+        setShowSettings(false)
+      }, 1200)
+    } catch (error) {
+      alert(error?.response?.data?.message || 'Failed to update profile')
     }
-    setSettingsSaved(true)
-    setSettingsChanged(false)
-    setTimeout(() => {
-      setSettingsSaved(false)
-      setShowSettings(false)
-    }, 1200)
   }
 
   useEffect(() => {
     const loadProfilePosts = async () => {
       if (!isAuthenticated) return
       try {
-        const res = await api.get('/users/my-posts')
-        setMyPosts((res.data.posts || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
+        const [postsRes, activityRes] = await Promise.all([
+          api.get('/users/my-posts'),
+          api.get('/users/my-activity'),
+        ])
+        setMyPosts((postsRes.data.posts || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
+        setActivityFeed((activityRes.data.activity || []).map((item) => ({
+          ...item,
+          time: timeAgo(item.createdAt),
+          color: item.type === 'comment' ? '#fb923c' : '#ec4899',
+        })))
       } catch (error) {
         setMyPosts([])
+        setActivityFeed([])
       } finally {
         setProfileLoading(false)
       }
@@ -316,6 +309,15 @@ export default function ProfilePage() {
     }
   })()
 
+  const computedBadges = [
+    { id: 'first-post', icon: '🎯', label: 'First Post', desc: 'Published your first anonymous post', earned: ds.totalPosts >= 1 },
+    { id: 'karma-100', icon: '⭐', label: 'Rising Star', desc: 'Earned 100+ karma', earned: ds.karma >= 100, progress: Math.min(ds.karma, 100), total: 100 },
+    { id: 'streak-7', icon: '🔥', label: 'On Fire', desc: '7-day posting streak', earned: ds.longestStreak >= 7, progress: Math.min(ds.longestStreak, 7), total: 7 },
+    { id: 'karma-1000', icon: '💎', label: 'Diamond Mind', desc: 'Earned 1000+ karma', earned: ds.karma >= 1000, progress: Math.min(ds.karma, 1000), total: 1000 },
+    { id: 'viral', icon: '🚀', label: 'Going Viral', desc: 'Get 500+ upvotes on a post', earned: myPosts.some((p) => (p.score || 0) >= 500) },
+    { id: 'legend', icon: '👑', label: 'Legendary', desc: '30-day posting streak', earned: ds.longestStreak >= 30, progress: Math.min(ds.longestStreak, 30), total: 30 },
+  ].map((b) => (b.earned ? { ...b, earnedDate: new Date().toISOString() } : b))
+
   const handleDeletePost = async (postId) => {
     setDeleteLoading(true)
     try {
@@ -351,7 +353,7 @@ export default function ProfilePage() {
     setEditLoading(true)
     try {
       const tags = editForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
-      const res = await api.put(`/posts/${editModalPost._id}`, { text, category: editForm.category, tags })
+      const res = await api.patch(`/posts/${editModalPost._id}`, { text, category: editForm.category, tags })
       const updated = res?.data?.post
       const isVisible = updated?.visibility === 'visible' || updated?.visibility === undefined || updated?.visibility === null
 
@@ -372,8 +374,8 @@ export default function ProfilePage() {
 
   const TABS = [
     { key: 'posts', label: 'Posts', icon: 'edit_square', count: myPosts.length },
-    { key: 'badges', label: 'Badges', icon: 'military_tech', count: BADGES.filter(b => b.earned).length },
-    { key: 'activity', label: 'Activity', icon: 'timeline', count: ACTIVITY_FEED.length },
+    { key: 'badges', label: 'Badges', icon: 'military_tech', count: computedBadges.filter(b => b.earned).length },
+    { key: 'activity', label: 'Activity', icon: 'timeline', count: activityFeed.length },
   ]
 
   if (authLoading || !isAuthenticated || profileLoading) {
@@ -695,8 +697,8 @@ export default function ProfilePage() {
                 <motion.div key="b" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 6 }} transition={{ duration: 0.18 }}>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' }}>
-                    {[{ l: 'Earned', v: BADGES.filter(b => b.earned).length, c: '#ec4899' },
-                      { l: 'Locked', v: BADGES.filter(b => !b.earned).length, c: '#b3aca3' }].map(s => (
+                    {[{ l: 'Earned', v: computedBadges.filter(b => b.earned).length, c: '#ec4899' },
+                      { l: 'Locked', v: computedBadges.filter(b => !b.earned).length, c: '#b3aca3' }].map(s => (
                       <div key={s.l} style={{ flex: 1, padding: '0.625rem', borderRadius: '0.75rem',
                         background: '#fff', textAlign: 'center', border: '1px solid rgba(234,225,213,0.25)' }}>
                         <p style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: '1.125rem', color: s.c }}>{s.v}</p>
@@ -705,7 +707,7 @@ export default function ProfilePage() {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.375rem' }}>
-                    {BADGES.map((b, i) => (
+                    {computedBadges.map((b, i) => (
                       <motion.button key={b.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.25, delay: i * 0.04 }} whileTap={{ scale: 0.92 }}
                         onClick={() => setSelectedBadge(b)}
@@ -726,7 +728,7 @@ export default function ProfilePage() {
                       </motion.button>
                     ))}
                   </div>
-                  {(() => { const n = BADGES.find(b => !b.earned && b.progress !== undefined); if (!n) return null; return (
+                  {(() => { const n = computedBadges.find(b => !b.earned && b.progress !== undefined); if (!n) return null; return (
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                       style={{ marginTop: '0.625rem', padding: '0.75rem', background: '#fff', borderRadius: '0.75rem',
                         border: '1px solid rgba(234,225,213,0.25)', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -751,7 +753,7 @@ export default function ProfilePage() {
                   exit={{ opacity: 0, x: 6 }} transition={{ duration: 0.18 }}>
                   <div style={{ background: '#fff', borderRadius: '0.875rem',
                     border: '1px solid rgba(234,225,213,0.25)', overflow: 'hidden' }}>
-                    {ACTIVITY_FEED.map((item, i) => (
+                    {activityFeed.map((item, i) => (
                       <motion.div key={item.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2, delay: i * 0.04 }}
                         style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem',

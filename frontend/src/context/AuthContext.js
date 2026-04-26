@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/axios'
 
@@ -28,19 +28,26 @@ function readStoredUser() {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(() => readStoredUser())
+  const [loading] = useState(false)
   const router = useRouter()
-
-  useEffect(() => {
-    setUser(readStoredUser())
-    setLoading(false)
-  }, [])
 
   const persistSession = useCallback((token, nextUser) => {
     sessionStorage.setItem('teatalks_token', token)
     sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
     setUser(nextUser)
+  }, [])
+
+  const refreshUser = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('teatalks_token') : null
+    if (!token) return null
+    const res = await api.get('/users/me')
+    const nextUser = res.data?.user
+    if (nextUser) {
+      sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+      setUser(nextUser)
+    }
+    return nextUser || null
   }, [])
 
   const login = useCallback(async (email, password) => {
@@ -72,6 +79,16 @@ export function AuthProvider({ children }) {
     router.push('/login')
   }, [router])
 
+  const updateProfile = useCallback(async (payload) => {
+    const res = await api.patch('/users/me', payload)
+    const nextUser = res.data?.user
+    if (nextUser) {
+      sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+      setUser(nextUser)
+    }
+    return nextUser
+  }, [])
+
   const value = useMemo(() => ({
     user,
     loading,
@@ -79,7 +96,9 @@ export function AuthProvider({ children }) {
     login,
     signup,
     logout,
-  }), [user, loading, login, signup, logout])
+    updateProfile,
+    refreshUser,
+  }), [user, loading, login, signup, logout, updateProfile, refreshUser])
 
   return (
     <AuthContext.Provider value={value}>

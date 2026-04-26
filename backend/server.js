@@ -21,9 +21,25 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
 });
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+});
+const otpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+});
+const toxicityLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+});
 
 app.use('/api/users/login', authLimiter);
 app.use('/api/users/register', authLimiter);
+app.use('/api/users/forgot-password', forgotPasswordLimiter);
+app.use('/api/users/forgot-password/verify-otp', otpVerifyLimiter);
+app.use('/api/users/forgot-password/reset', otpVerifyLimiter);
+app.use('/api/users/detect-toxicity', toxicityLimiter);
 
 // Routes
 app.use('/api/users', require('./routes/userRoutes'));

@@ -3,6 +3,7 @@ const AdminAction = require('../models/adminAction');
 const Report = require('../models/reports');
 const Post = require('../models/posts');
 const Comment = require('../models/comment');
+const mongoose = require('mongoose');
 const { buildAdminModerationFields } = require('../services/contentModerationService');
 
 function getSinceDate(days = 1) {
@@ -56,11 +57,32 @@ function buildFlaggedItem(item, type, reportCount = 0) {
   };
 }
 
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+function parseBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return null;
+}
+
+function parsePagination(query) {
+  const page = Math.max(parseInt(query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+}
+
 exports.listUsers = async (req, res) => {
   try {
+    const { page, limit, skip } = parsePagination(req.query);
     const users = await User.find({})
       .select('-password')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     const [postCounts, allPosts, allComments, allReports] = await Promise.all([
       Post.aggregate([
@@ -89,7 +111,7 @@ exports.listUsers = async (req, res) => {
       reportCount: reportCountMap.get(String(user._id)) || 0,
     }));
 
-    return res.json({ users: enrichedUsers });
+    return res.json({ users: enrichedUsers, page, limit });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -99,8 +121,11 @@ exports.warnUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { reason = '' } = req.body;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
 
-    const user = await User.findById(id);
+    const user = await User.findById(id).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -127,27 +152,34 @@ exports.setBanStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { banned, reason = '' } = req.body;
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+    const parsedBanned = parseBoolean(banned);
+    if (parsedBanned === null) {
+      return res.status(400).json({ message: 'banned must be a boolean' });
+    }
 
-    const user = await User.findById(id);
+    const user = await User.findById(id).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.banStatus = !!banned;
-    user.banReason = banned ? reason : '';
-    user.bannedAt = banned ? new Date() : null;
-    user.bannedBy = banned ? req.user : null;
+    user.banStatus = parsedBanned;
+    user.banReason = parsedBanned ? reason : '';
+    user.bannedAt = parsedBanned ? new Date() : null;
+    user.bannedBy = parsedBanned ? req.user : null;
     await user.save();
 
     await AdminAction.create({
       adminId: req.user,
       targetUserId: user._id,
-      actionType: banned ? 'ban_user' : 'unban_user',
+      actionType: parsedBanned ? 'ban_user' : 'unban_user',
       reason,
     });
 
     return res.json({
-      message: banned ? 'User banned successfully' : 'User unbanned successfully',
+      message: parsedBanned ? 'User banned successfully' : 'User unbanned successfully',
       user,
     });
   } catch (error) {
@@ -157,12 +189,14 @@ exports.setBanStatus = async (req, res) => {
 
 exports.listActions = async (req, res) => {
   try {
+    const { page, limit, skip } = parsePagination(req.query);
     const actions = await AdminAction.find({})
       .sort({ createdAt: -1 })
-      .limit(200)
+      .skip(skip)
+      .limit(limit)
       .populate('adminId', 'email campusName role')
       .populate('targetUserId', 'email campusName role banStatus warningCount');
-    return res.json({ actions });
+    return res.json({ actions, page, limit });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -171,16 +205,18 @@ exports.listActions = async (req, res) => {
 exports.listReports = async (req, res) => {
   try {
     const { status = 'pending', type } = req.query;
+    const { page, limit, skip } = parsePagination(req.query);
     const query = {};
     if (status !== 'all') query.status = status;
     if (type) query.targetType = type;
 
     const reports = await Report.find(query)
       .sort({ createdAt: -1 })
-      .limit(300)
+      .skip(skip)
+      .limit(limit)
       .populate('reporterId', 'email anonymousName emoji role');
 
-    return res.json({ reports });
+    return res.json({ reports, page, limit });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -189,6 +225,9 @@ exports.listReports = async (req, res) => {
 exports.updateReportStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid report id' });
+    }
     if (!['pending', 'reviewed', 'resolved'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
@@ -304,6 +343,7 @@ exports.getOverview = async (req, res) => {
 exports.listFlaggedContent = async (req, res) => {
   try {
     const { status = 'pending', type = 'all' } = req.query;
+    const { page, limit } = parsePagination(req.query);
     const reportStatusFilter =
       status === 'pending'
         ? 'pending'
@@ -407,7 +447,8 @@ exports.listFlaggedContent = async (req, res) => {
       })
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    return res.json({ items });
+    const start = (page - 1) * limit;
+    return res.json({ items: items.slice(start, start + limit), page, limit, total: items.length });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -416,6 +457,9 @@ exports.listFlaggedContent = async (req, res) => {
 exports.updateContentModeration = async (req, res) => {
   try {
     const { targetType, status, reason = '' } = req.body;
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid content id' });
+    }
 
     if (!['Post', 'Comment'].includes(targetType)) {
       return res.status(400).json({ message: 'targetType must be Post or Comment' });

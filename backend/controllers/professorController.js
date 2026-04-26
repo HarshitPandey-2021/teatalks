@@ -1,11 +1,15 @@
 const Professor = require('../models/professor');
 
+function escapeRegExp(value = '') {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.listProfessors = async (req, res) => {
   try {
     const { department, q } = req.query;
     const query = {};
     if (department) query.department = department;
-    if (q) query.name = { $regex: q, $options: 'i' };
+    if (q) query.name = { $regex: escapeRegExp(q.trim()), $options: 'i' };
 
     const professors = await Professor.find(query).sort({ name: 1 });
     return res.json({ professors });

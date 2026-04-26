@@ -479,6 +479,19 @@ export default function FeedPage() {
     }
   }
 
+  const handleVotePost = useCallback(async (postId, nextVote) => {
+    const vote = nextVote === 'up' ? 1 : nextVote === 'down' ? -1 : 0
+    try {
+      const res = await api.post(`/posts/${postId}/vote`, { vote })
+      const updated = res?.data?.post
+      if (updated?._id) {
+        setPosts((prev) => prev.map((p) => (p._id === updated._id ? { ...p, ...updated } : p)))
+      }
+    } catch {
+      // Keep UI usable even when request fails.
+    }
+  }, [])
+
   // ── Loading state ──
   if (authLoading || !isAuthenticated || postsLoading) {
     return (
@@ -689,6 +702,7 @@ export default function FeedPage() {
                   <PostCard
                     {...post}
                     isMine={String(post.authorId) === String(user?._id)}
+                    onVote={handleVotePost}
                     onEdit={openEditModal}
                     onDelete={(id) => setDeleteTarget(posts.find((p) => p._id === id) || null)}
                   />
@@ -725,7 +739,7 @@ export default function FeedPage() {
                 textAlign: 'center', padding: '1.25rem 0 0.5rem',
                 color: '#c8c1b8', fontSize: '0.6875rem',
                 fontWeight: 600, letterSpacing: '0.04em',
-              }}>You're all caught up ✨</div>
+              }}>You&apos;re all caught up ✨</div>
             )}
           </div>
         </main>

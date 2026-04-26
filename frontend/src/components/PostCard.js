@@ -194,7 +194,12 @@ export default function PostCard({
     setSc(s => s + d)
     setVotePulse(dir)
     setTimeout(() => setVotePulse(null), 220)
-    if (onVote) onVote(_id, nv)
+    if (onVote) {
+      onVote(_id, nv)
+      return
+    }
+    const voteValue = nv === 'up' ? 1 : nv === 'down' ? -1 : 0
+    api.post(`/posts/${_id}/vote`, { vote: voteValue }).catch(() => {})
   }, [vote, _id, onVote])
 
   const doShare = useCallback((e) => {
