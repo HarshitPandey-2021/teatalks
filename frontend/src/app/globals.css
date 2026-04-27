@@ -284,3 +284,76 @@ main {
   background: linear-gradient(135deg,#ff6ec4,#ffb347,#ffd93d);
   z-index: -1;
 }
+.section {
+  padding: 100px 20px;
+  text-align: center;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+/* GRID */
+.brew-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 36px;
+  justify-items: center;
+}
+
+/* CARD */
+.brew-card {
+  position: relative;
+  background: linear-gradient(180deg,#ffffff,#fff8f1);
+  border-radius: 24px;
+  padding: 36px 26px;
+  max-width: 280px;
+
+  border: 1px solid rgba(0,0,0,0.04);
+
+  /* soft premium shadow */
+  box-shadow:
+    0 6px 18px rgba(0,0,0,0.05),
+    0 12px 40px rgba(255,140,0,0.08);
+
+  transition: all 0.35s ease;
+  overflow: hidden;
+}
+
+/* HOVER */
+.brew-card:hover {
+  transform: translateY(-10px) scale(1.01);
+
+  box-shadow:
+    0 20px 50px rgba(255,140,0,0.18),
+    0 10px 25px rgba(0,0,0,0.06);
+}
+
+/* GLOW ORB */
+.brew-glow {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  filter: blur(35px);
+  opacity: 0.25;
+}
+
+/* TITLE */
+.brew-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #111;
+  letter-spacing: 0.3px;
+}
+
+/* DESC */
+.brew-desc {
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.75;
+}
