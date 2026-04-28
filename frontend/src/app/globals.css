@@ -937,6 +937,109 @@ main {
   100% { opacity: 0; transform: translate(-50%, -10px); }
 }
 
+.tt-toast-viewport {
+  position: fixed;
+  top: max(1rem, env(safe-area-inset-top, 0px) + 0.5rem);
+  right: max(1rem, env(safe-area-inset-right, 0px) + 0.5rem);
+  left: auto;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  width: min(24rem, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+
+.tt-toast-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid;
+  border-radius: 1.15rem;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.tt-toast-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.5), transparent 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 58%);
+  pointer-events: none;
+}
+
+.tt-toast-icon-wrap {
+  position: relative;
+  z-index: 1;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tt-toast-title {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 0.18rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.tt-toast-message {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: #4a4239;
+  font-size: 0.81rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.tt-toast-close {
+  position: relative;
+  z-index: 1;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.52);
+  color: #6c655c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tt-toast-close:hover {
+  background: rgba(255, 255, 255, 0.82);
+  color: #2e2318;
+  transform: rotate(90deg);
+}
+
+@media (max-width: 640px) {
+  .tt-toast-viewport {
+    top: auto;
+    right: 0.75rem;
+    left: 0.75rem;
+    bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
+    width: auto;
+  }
+}
+
 /* ═══════════════════════════════════════════
    APP SHARED UTILITIES — appended
    ═══════════════════════════════════════════ */

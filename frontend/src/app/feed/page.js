@@ -7,7 +7,9 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import PostCard from '@/components/PostCard'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import api from '@/lib/axios'
+import { validatePostText, validateTags } from '@/lib/validation'
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // STATIC DATA
@@ -262,6 +264,7 @@ export default function FeedPage() {
   const [pulseEvents, setPulseEvents] = useState([])
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { error: showErrorToast, warning: showWarningToast } = useToast()
   const router = useRouter()
   const allPostsRef = useRef([])
   const [posts, setPosts] = useState([])
@@ -404,7 +407,7 @@ export default function FeedPage() {
       setPosts((prev) => prev.filter((p) => p._id !== postId))
       setDeleteTarget(null)
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to delete post')
+      showErrorToast(error.response?.data?.message || 'Failed to delete post')
     } finally {
       setDeleteLoading(false)
     }
@@ -434,12 +437,23 @@ export default function FeedPage() {
 
   const submitEditPost = async () => {
     if (!editModalPost) return
+    const textError = validatePostText(editForm.text)
+    if (textError) {
+      showWarningToast(textError, { title: 'Invalid Post' })
+      return
+    }
     setEditLoading(true)
     try {
-      const tags = editForm.tags
+      const tagResult = validateTags(editForm.tags
         .split(',')
         .map((t) => t.trim())
-        .filter(Boolean)
+        .filter(Boolean))
+      if (tagResult.error) {
+        showWarningToast(tagResult.error, { title: 'Invalid Tags' })
+        setEditLoading(false)
+        return
+      }
+      const tags = tagResult.value
       const payload = {
         text: editForm.text,
         category: editForm.category,
@@ -469,11 +483,11 @@ export default function FeedPage() {
         setPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updatedPost } : p)))
       } else {
         setPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
-        alert('Your post was hidden for review because it was detected as toxic.')
+        showWarningToast('Your post was hidden for review because it was detected as toxic.', { title: 'Post Hidden' })
       }
       closeEditModal()
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to update post')
+      showErrorToast(error.response?.data?.message || 'Failed to update post')
     } finally {
       setEditLoading(false)
     }

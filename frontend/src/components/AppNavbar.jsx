@@ -300,7 +300,7 @@ function MobileProfileDropdown({ user, onClose, onLogout }) {
           <p style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 700, fontSize: '0.8125rem',
             color: '#322e28', lineHeight: 1.2, margin: 0 }}>{user?.anonymousName || 'Anonymous'}</p>
           <p style={{ fontSize: '0.625rem', color: '#b3aca3', fontWeight: 500, margin: 0, marginTop: 1 }}>
-            {user?.branch || 'CSE'} • {user?.year || '3rd Year'}
+            {user?.branch || 'CSE'} • {user?.year || '1st Year'}
           </p>
         </div>
       </div>

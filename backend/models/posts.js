@@ -1,3 +1,5 @@
+const { POST_CATEGORIES } = require('../utils/validation');
+
 const mongoose = require('mongoose');
 
 const postSchema = new mongoose.Schema({
@@ -16,14 +18,20 @@ const postSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    enum: POST_CATEGORIES
   },
   text: {
-    type: String
+    type: String,
+    trim: true,
+    maxlength: 1000
   },
   tags: [
     {
-      type: String
+      type: String,
+      trim: true,
+      maxlength: 24
     }
   ],
   image: {

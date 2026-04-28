@@ -3,13 +3,13 @@ const User = require('../models/user');
 
 const protect = async (req, res, next) => {
   try {
-    let token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
-    if (!token) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'No token, access denied' });
     }
 
-    token = token.split(' ')[1]; // Bearer TOKEN
+    const token = authHeader.split(' ')[1];
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select('role banStatus');

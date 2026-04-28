@@ -2,11 +2,18 @@ const Post = require('../models/posts');
 const Comment = require('../models/comment');
 const User = require('../models/user');
 const PostVote = require('../models/postVote');
+const CommentVote = require('../models/commentVote');
+const Report = require('../models/reports');
 const mongoose = require('mongoose');
 const {
   buildToxicityModeration,
   buildVoteModerationFields,
 } = require('../services/contentModerationService');
+const {
+  validatePostCategory,
+  validatePostText,
+  validateTags,
+} = require('../utils/validation');
 
 async function serializePost(postDoc, viewerUserId = null) {
   const post = postDoc.toObject ? postDoc.toObject() : postDoc;
@@ -33,8 +40,17 @@ async function serializePost(postDoc, viewerUserId = null) {
 exports.createPost = async (req, res) => {
   try {
     const { category, text, tags = [], image, imagePublicId, imageMeta } = req.body;
-    if (!category) {
-      return res.status(400).json({ message: 'Category is required' });
+    const categoryError = validatePostCategory(category);
+    if (categoryError) {
+      return res.status(400).json({ message: categoryError });
+    }
+    const textError = validatePostText(text);
+    if (textError) {
+      return res.status(400).json({ message: textError });
+    }
+    const tagResult = validateTags(tags);
+    if (tagResult.error) {
+      return res.status(400).json({ message: tagResult.error });
     }
 
     const user = await User.findById(req.user).select('anonymousName emoji');
@@ -48,9 +64,9 @@ exports.createPost = async (req, res) => {
       authorId: req.user,
       anonymousName: user.anonymousName,
       anonymousEmoji: user.emoji,
-      category,
-      text,
-      tags,
+      category: String(category).trim(),
+      text: String(text).trim(),
+      tags: tagResult.value,
       image,
       imagePublicId,
       imageMeta,
@@ -124,6 +140,30 @@ exports.updatePost = async (req, res) => {
       }
     });
 
+    if (req.body.category !== undefined) {
+      const categoryError = validatePostCategory(post.category);
+      if (categoryError) {
+        return res.status(400).json({ message: categoryError });
+      }
+      post.category = String(post.category).trim();
+    }
+
+    if (req.body.text !== undefined) {
+      const textError = validatePostText(post.text);
+      if (textError) {
+        return res.status(400).json({ message: textError });
+      }
+      post.text = String(post.text).trim();
+    }
+
+    if (req.body.tags !== undefined) {
+      const tagResult = validateTags(post.tags);
+      if (tagResult.error) {
+        return res.status(400).json({ message: tagResult.error });
+      }
+      post.tags = tagResult.value;
+    }
+
     if (req.body.text !== undefined) {
       const { toxicity, moderationFields } = await buildToxicityModeration(post.text || '');
       Object.assign(post, moderationFields);
@@ -149,7 +189,20 @@ exports.deletePost = async (req, res) => {
       return res.status(403).json({ message: 'Not allowed to delete this post' });
     }
 
+    const comments = await Comment.find({ postId: post._id }).select('_id');
+    const commentIds = comments.map((comment) => comment._id);
+
     await Comment.deleteMany({ postId: post._id });
+    await PostVote.deleteMany({ postId: post._id });
+    if (commentIds.length) {
+      await CommentVote.deleteMany({ commentId: { $in: commentIds } });
+    }
+    await Report.deleteMany({
+      $or: [
+        { targetId: post._id, targetType: 'Post' },
+        ...(commentIds.length ? [{ targetId: { $in: commentIds }, targetType: 'Comment' }] : []),
+      ],
+    });
     await Post.deleteOne({ _id: post._id });
     return res.json({ message: 'Post deleted successfully' });
   } catch (error) {
@@ -194,9 +247,10 @@ exports.votePost = async (req, res) => {
     const voteModerationFields = buildVoteModerationFields(totalScore, post.moderationStatus);
     if (voteModerationFields) {
       Object.assign(post, voteModerationFields);
-      if (!post.moderationReasons.includes('Automatically hidden because score dropped to -10 or below')) {
+      const moderationReasons = Array.isArray(post.moderationReasons) ? post.moderationReasons : [];
+      if (!moderationReasons.includes('Automatically hidden because score dropped to -10 or below')) {
         post.moderationReasons = [
-          ...post.moderationReasons,
+          ...moderationReasons,
           'Automatically hidden because score dropped to -10 or below'
         ];
       }

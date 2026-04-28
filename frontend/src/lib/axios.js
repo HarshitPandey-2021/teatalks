@@ -2,6 +2,7 @@ import axios from 'axios'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+const AUTH_CHANGE_EVENT = 'teatalks-auth-change'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -27,6 +28,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       sessionStorage.removeItem('teatalks_token')
       sessionStorage.removeItem('teatalks_user')
+      window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
       window.location.href = '/login'
     }
     return Promise.reject(error)

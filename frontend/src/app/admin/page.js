@@ -136,7 +136,7 @@ export default function AdminOverviewPage() {
                       <span style={{ fontSize: '0.6875rem', color: '#7b766e', fontWeight: 500, whiteSpace: 'nowrap', marginLeft: '0.5rem' }}>{timeAgo(report.time)}</span>
                     </div>
                     <p style={{ fontSize: '0.8125rem', color: '#5f5b53', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-                      Reported by <span style={{ color: '#904800', fontWeight: 600 }}>{report.reporter}</span>: "{report.reason}"
+                      Reported by <span style={{ color: '#904800', fontWeight: 600 }}>{report.reporter}</span>: &ldquo;{report.reason}&rdquo;
                     </p>
                     <Link href="/admin/flagged" style={{ padding: '0.375rem 1rem', borderRadius: 9999, background: '#b00d6a', color: '#ffffff', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'none' }}>Review</Link>
                   </div>

@@ -1,10 +1,14 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState, useCallback } from 'react'
+import { createContext, useContext, useMemo, useCallback, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/axios'
 
 const AuthContext = createContext(null)
+const AUTH_CHANGE_EVENT = 'teatalks-auth-change'
+let cachedUserSnapshot = null
+let cachedUserStorageValue = null
+let cachedTokenStorageValue = null
 
 function readStoredUser() {
   if (typeof window === 'undefined') {
@@ -16,26 +20,80 @@ function readStoredUser() {
     const savedToken = sessionStorage.getItem('teatalks_token')
 
     if (!savedUser || !savedToken) {
+      cachedUserSnapshot = null
+      cachedUserStorageValue = savedUser
+      cachedTokenStorageValue = savedToken
       return null
     }
 
-    return JSON.parse(savedUser)
+    if (savedUser === cachedUserStorageValue && savedToken === cachedTokenStorageValue) {
+      return cachedUserSnapshot
+    }
+
+    cachedUserSnapshot = JSON.parse(savedUser)
+    cachedUserStorageValue = savedUser
+    cachedTokenStorageValue = savedToken
+    return cachedUserSnapshot
   } catch {
     sessionStorage.removeItem('teatalks_user')
     sessionStorage.removeItem('teatalks_token')
+    cachedUserSnapshot = null
+    cachedUserStorageValue = null
+    cachedTokenStorageValue = null
     return null
   }
 }
 
+function emitAuthChange() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
+  }
+}
+
+function subscribeToAuthChange(callback) {
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
+
+  window.addEventListener('storage', callback)
+  window.addEventListener(AUTH_CHANGE_EVENT, callback)
+
+  return () => {
+    window.removeEventListener('storage', callback)
+    window.removeEventListener(AUTH_CHANGE_EVENT, callback)
+  }
+}
+
+function subscribeToClientReady() {
+  return () => {}
+}
+
+function getClientReadySnapshot() {
+  return true
+}
+
+function getServerReadySnapshot() {
+  return false
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => readStoredUser())
-  const [loading] = useState(false)
+  const isClient = useSyncExternalStore(
+    subscribeToClientReady,
+    getClientReadySnapshot,
+    getServerReadySnapshot
+  )
+  const user = useSyncExternalStore(
+    subscribeToAuthChange,
+    readStoredUser,
+    () => null
+  )
+  const loading = !isClient
   const router = useRouter()
 
   const persistSession = useCallback((token, nextUser) => {
     sessionStorage.setItem('teatalks_token', token)
     sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
-    setUser(nextUser)
+    emitAuthChange()
   }, [])
 
   const refreshUser = useCallback(async () => {
@@ -45,7 +103,7 @@ export function AuthProvider({ children }) {
     const nextUser = res.data?.user
     if (nextUser) {
       sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
-      setUser(nextUser)
+      emitAuthChange()
     }
     return nextUser || null
   }, [])
@@ -86,7 +144,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     sessionStorage.removeItem('teatalks_token')
     sessionStorage.removeItem('teatalks_user')
-    setUser(null)
+    emitAuthChange()
     router.push('/login')
   }, [router])
 
@@ -95,7 +153,7 @@ export function AuthProvider({ children }) {
     const nextUser = res.data?.user
     if (nextUser) {
       sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
-      setUser(nextUser)
+      emitAuthChange()
     }
     return nextUser
   }, [])

@@ -26,16 +26,31 @@ router.patch('/me', protect, updateMe);
 router.get('/my-posts', protect, getMyPosts);
 router.get('/my-activity', protect, getMyActivity);
 router.post('/detect-toxicity', protect, async (req, res) => {
- try {
-    const result = await detectToxicity(req.body.text);
-    res.json(result);
+  try {
+    const text = typeof req.body?.text === 'string' ? req.body.text : '';
+    if (!text.trim()) {
+      return res.status(400).json({ error: 'text is required' });
+    }
+
+    const result = await detectToxicity(text);
+    return res.json(result);
   } catch (err) {
     console.error("Toxicity service error", {
       status: err.status,
+      code: err.code,
       message: err.message,
       details: err.details
     });
-    res.status(500).json({ error: err.message });
+
+    if (err.message === 'Text is required and must be a string' || err.message === 'Text cannot be empty') {
+      return res.status(400).json({ error: err.message });
+    }
+
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message, details: err.details || null });
+    }
+
+    return res.status(500).json({ error: err.message });
   }
 });
 

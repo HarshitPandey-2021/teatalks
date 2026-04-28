@@ -21,7 +21,9 @@ const commentSchema = new mongoose.Schema({
   },
   text: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 1000
   },
   parentCommentId: {
     type: mongoose.Schema.Types.ObjectId,

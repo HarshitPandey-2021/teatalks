@@ -7,6 +7,7 @@ import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import api from '@/lib/axios'
+import { isValidEmail, isValidOtp, isValidPassword, PASSWORD_MESSAGE } from '@/lib/validation'
 
 const ACTIVITY = [
   {
@@ -102,7 +103,7 @@ export default function LoginPage() {
     e.preventDefault()
     const errs = {}
     const trimmed = email.trim()
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed))
+    if (!isValidEmail(trimmed))
       errs.email = 'Valid email address required'
     if (!password) errs.password = 'Password is required'
     if (Object.keys(errs).length) return setFieldErrors(errs)
@@ -126,7 +127,10 @@ export default function LoginPage() {
   }
 
   const handleForgotSendOtp = async () => {
-    if (!forgotForm.email.trim()) return
+    if (!isValidEmail(forgotForm.email.trim())) {
+      setForgotMessage('Enter a valid registered email.')
+      return
+    }
     setForgotLoading(true)
     setForgotMessage('')
     try {
@@ -141,7 +145,10 @@ export default function LoginPage() {
   }
 
   const handleForgotVerifyOtp = async () => {
-    if (!forgotForm.otp.trim()) return
+    if (!isValidOtp(forgotForm.otp)) {
+      setForgotMessage('Enter the 6-digit OTP sent to your email.')
+      return
+    }
     setForgotLoading(true)
     setForgotMessage('')
     try {
@@ -162,12 +169,8 @@ export default function LoginPage() {
   const handleForgotResetPassword = async () => {
     const newPassword = forgotForm.newPassword
     const confirmPassword = forgotForm.confirmPassword
-    if (newPassword.length < 8) {
-      setForgotMessage('Password must be at least 8 characters.')
-      return
-    }
-    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
-      setForgotMessage('Use upper, lower, number, and special character.')
+    if (!isValidPassword(newPassword)) {
+      setForgotMessage(PASSWORD_MESSAGE)
       return
     }
     if (newPassword !== confirmPassword) {

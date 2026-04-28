@@ -2,8 +2,10 @@ const Comment = require('../models/comment');
 const Post = require('../models/posts');
 const User = require('../models/user');
 const CommentVote = require('../models/commentVote');
+const Report = require('../models/reports');
 const mongoose = require('mongoose');
 const { buildToxicityModeration } = require('../services/contentModerationService');
+const { validateCommentText } = require('../utils/validation');
 
 async function serializeComment(commentDoc, viewerUserId = null) {
   const comment = commentDoc.toObject ? commentDoc.toObject() : commentDoc;
@@ -29,8 +31,9 @@ exports.createComment = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
     const { text } = req.body;
-    if (!text?.trim()) {
-      return res.status(400).json({ message: 'Comment text is required' });
+    const textError = validateCommentText(text, 'Comment');
+    if (textError) {
+      return res.status(400).json({ message: textError });
     }
 
     const post = await Post.findById(req.params.id);
@@ -62,8 +65,9 @@ exports.createReply = async (req, res) => {
       return res.status(404).json({ message: 'Post or parent comment not found' });
     }
     const { text } = req.body;
-    if (!text?.trim()) {
-      return res.status(400).json({ message: 'Reply text is required' });
+    const textError = validateCommentText(text, 'Reply');
+    if (textError) {
+      return res.status(400).json({ message: textError });
     }
 
     const post = await Post.findById(req.params.postId);
@@ -122,7 +126,8 @@ exports.updateComment = async (req, res) => {
     if (String(comment.authorId) !== req.user) {
       return res.status(403).json({ message: 'Not allowed to edit this comment' });
     }
-    if (!text?.trim()) return res.status(400).json({ message: 'Comment text is required' });
+    const textError = validateCommentText(text, 'Comment');
+    if (textError) return res.status(400).json({ message: textError });
 
     comment.text = text.trim();
     const { toxicity, moderationFields } = await buildToxicityModeration(comment.text);
@@ -142,8 +147,14 @@ exports.deleteComment = async (req, res) => {
       return res.status(403).json({ message: 'Not allowed to delete this comment' });
     }
 
-    await Comment.deleteMany({ parentCommentId: comment._id });
-    await Comment.deleteOne({ _id: comment._id });
+    const commentsToDelete = await Comment.find({
+      $or: [{ _id: comment._id }, { parentCommentId: comment._id }],
+    }).select('_id');
+    const commentIds = commentsToDelete.map((item) => item._id);
+
+    await Comment.deleteMany({ _id: { $in: commentIds } });
+    await CommentVote.deleteMany({ commentId: { $in: commentIds } });
+    await Report.deleteMany({ targetId: { $in: commentIds }, targetType: 'Comment' });
     return res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
     return res.status(500).json({ message: error.message });

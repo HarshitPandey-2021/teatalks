@@ -10,6 +10,7 @@ import CommentCard from '@/components/CommentCard'
 import CommentForm from '@/components/CommentForm'
 import ReportModal from '@/components/ReportModal'
 import PostCard from '@/components/PostCard'
+import { useToast } from '@/context/ToastContext'
 import api from '@/lib/axios'
 
 /* ─────────────────────────────────────────────────────────────
@@ -53,12 +54,12 @@ async function submitVote(postId, vote) {
 }
 
 async function submitComment(postId, text) {
-  const res = await api.post(`/posts/${postId}/comments`, { text })
+  const res = await api.post(`/posts/${postId}/comments`, { text }, { timeout: 15000 })
   return res.data
 }
 
 async function submitReply(postId, parentCommentId, text) {
-  const res = await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text })
+  const res = await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text }, { timeout: 15000 })
   return res.data
 }
 
@@ -634,6 +635,7 @@ export default function PostDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { warning: showWarningToast, error: showErrorToast } = useToast()
   const commentFormRef = useRef(null)
 
   const [post, setPost] = useState(null)
@@ -674,36 +676,44 @@ export default function PostDetailPage() {
   }, [postVote, params.id])
 
   const handleNewComment = useCallback(async (text) => {
-    const result = await submitComment(params.id, text)
-    const createdComment = result?.comment
-    const isVisible = createdComment?.visibility === 'visible' || createdComment?.visibility === undefined || createdComment?.visibility === null
+    try {
+      const result = await submitComment(params.id, text)
+      const createdComment = result?.comment
+      const isVisible = createdComment?.visibility === 'visible' || createdComment?.visibility === undefined || createdComment?.visibility === null
 
-    if (createdComment && isVisible) {
-      setComments(prev => [{ ...createdComment, replies: createdComment.replies || [] }, ...prev])
-      setCommentCount(c => c + 1)
-      return
-    }
+      if (createdComment && isVisible) {
+        setComments(prev => [{ ...createdComment, replies: createdComment.replies || [] }, ...prev])
+        setCommentCount(c => c + 1)
+        return
+      }
 
-    if (result?.toxicity?.score >= 0.6 || createdComment?.moderationStatus === 'toxic') {
-      alert('Your comment was hidden for review because it was detected as toxic.')
+      if (result?.toxicity?.score >= 0.6 || createdComment?.moderationStatus === 'toxic') {
+        showWarningToast('Your comment was hidden for review because it was detected as toxic.', { title: 'Comment Hidden' })
+      }
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || error?.message || 'Failed to post comment')
     }
-  }, [params.id])
+  }, [params.id, showErrorToast, showWarningToast])
 
   const handleReply = useCallback(async (parentId, text) => {
-    const result = await submitReply(params.id, parentId, text)
-    const newReply = result?.comment
-    const isVisible = newReply?.visibility === 'visible' || newReply?.visibility === undefined || newReply?.visibility === null
+    try {
+      const result = await submitReply(params.id, parentId, text)
+      const newReply = result?.comment
+      const isVisible = newReply?.visibility === 'visible' || newReply?.visibility === undefined || newReply?.visibility === null
 
-    if (newReply && isVisible) {
-      setComments(prev => insertReplyRecursive(prev, parentId, { ...newReply, replies: newReply.replies || [] }))
-      setCommentCount(c => c + 1)
-      return
-    }
+      if (newReply && isVisible) {
+        setComments(prev => insertReplyRecursive(prev, parentId, { ...newReply, replies: newReply.replies || [] }))
+        setCommentCount(c => c + 1)
+        return
+      }
 
-    if (result?.toxicity?.score >= 0.6 || newReply?.moderationStatus === 'toxic') {
-      alert('Your reply was hidden for review because it was detected as toxic.')
+      if (result?.toxicity?.score >= 0.6 || newReply?.moderationStatus === 'toxic') {
+        showWarningToast('Your reply was hidden for review because it was detected as toxic.', { title: 'Reply Hidden' })
+      }
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || error?.message || 'Failed to post reply')
     }
-  }, [params.id])
+  }, [params.id, showErrorToast, showWarningToast])
 
   const handleShare = useCallback(async () => {
     try { await navigator.clipboard.writeText(window.location.href) }

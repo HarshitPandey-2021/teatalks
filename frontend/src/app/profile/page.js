@@ -6,10 +6,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import api from '@/lib/axios'
+import { BRANCH_OPTIONS, YEAR_OPTIONS, validatePostText, validateTags } from '@/lib/validation'
 
-const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace']
-const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']
 const CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews']
 
 const STREAK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -200,6 +200,7 @@ function CustomSelect({ value, options, onChange, icon, label }) {
 
 export default function ProfilePage() {
   const { user, isAuthenticated, loading: authLoading, logout, updateProfile } = useAuth()
+  const { error: showErrorToast, warning: showWarningToast } = useToast()
   const router = useRouter()
   const [myPosts, setMyPosts] = useState([])
   const [profileLoading, setProfileLoading] = useState(true)
@@ -215,14 +216,14 @@ export default function ProfilePage() {
 
   // Editable fields
   const [editBranch, setEditBranch] = useState(user?.branch || 'CSE')
-  const [editYear, setEditYear] = useState(user?.year || '3rd Year')
+  const [editYear, setEditYear] = useState(user?.year || '1st Year')
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [settingsChanged, setSettingsChanged] = useState(false)
 
   // Track changes
   useEffect(() => {
     const branchChanged = editBranch !== (user?.branch || 'CSE')
-    const yearChanged = editYear !== (user?.year || '3rd Year')
+    const yearChanged = editYear !== (user?.year || '1st Year')
     setSettingsChanged(branchChanged || yearChanged)
     setSettingsSaved(false)
   }, [editBranch, editYear, user])
@@ -231,7 +232,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (showSettings) {
       setEditBranch(user?.branch || 'CSE')
-      setEditYear(user?.year || '3rd Year')
+      setEditYear(user?.year || '1st Year')
       setSettingsSaved(false)
       setSettingsChanged(false)
     }
@@ -249,7 +250,7 @@ export default function ProfilePage() {
         setShowSettings(false)
       }, 1200)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Failed to update profile')
+      showErrorToast(error?.response?.data?.message || 'Failed to update profile')
     }
   }
 
@@ -325,7 +326,7 @@ export default function ProfilePage() {
       setMyPosts((prev) => prev.filter((p) => p._id !== postId))
       setDeleteTarget(null)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Could not delete post')
+      showErrorToast(error?.response?.data?.message || 'Could not delete post')
     } finally {
       setDeleteLoading(false)
     }
@@ -349,10 +350,20 @@ export default function ProfilePage() {
   const submitEditPost = async () => {
     if (!editModalPost) return
     const text = editForm.text.trim()
-    if (!text) return alert('Post text cannot be empty')
+    const textError = validatePostText(text)
+    if (textError) {
+      showWarningToast(textError, { title: 'Missing Content' })
+      return
+    }
     setEditLoading(true)
     try {
-      const tags = editForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      const tagResult = validateTags(editForm.tags.split(',').map((t) => t.trim()).filter(Boolean))
+      if (tagResult.error) {
+        showWarningToast(tagResult.error, { title: 'Invalid Tags' })
+        setEditLoading(false)
+        return
+      }
+      const tags = tagResult.value
       const res = await api.patch(`/posts/${editModalPost._id}`, { text, category: editForm.category, tags })
       const updated = res?.data?.post
       const isVisible = updated?.visibility === 'visible' || updated?.visibility === undefined || updated?.visibility === null
@@ -361,11 +372,11 @@ export default function ProfilePage() {
         setMyPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updated } : p)))
       } else {
         setMyPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
-        alert('Your post was hidden for review because it was detected as toxic.')
+        showWarningToast('Your post was hidden for review because it was detected as toxic.', { title: 'Post Hidden' })
       }
       closeEditModal()
     } catch (error) {
-      alert(error?.response?.data?.message || 'Could not update post')
+      showErrorToast(error?.response?.data?.message || 'Could not update post')
       setEditLoading(false)
     }
   }

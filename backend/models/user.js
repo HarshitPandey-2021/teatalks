@@ -1,15 +1,22 @@
+const { BRANCH_OPTIONS, YEAR_OPTIONS } = require('../utils/validation');
+
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
     campusName: {
       type: String,
-      required: true
+      required: true,
+      trim: true,
+      minlength: 2,
+      maxlength: 80
     },
     email: {
       type: String,
       required: true,
-      unique: true
+      unique: true,
+      trim: true,
+      lowercase: true
     },
     password: {
       type: String,
@@ -53,13 +60,13 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'CSE',
       trim: true,
-      maxlength: 80
+      enum: BRANCH_OPTIONS
     },
     year: {
       type: String,
       default: '1st Year',
       trim: true,
-      maxlength: 40
+      enum: YEAR_OPTIONS
     }
   },
   { timestamps: true}

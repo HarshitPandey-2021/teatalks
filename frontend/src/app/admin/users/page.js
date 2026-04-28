@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import AdminSidebar from '@/components/AdminSidebar'
 import api from '@/lib/axios'
 
@@ -14,6 +15,7 @@ function formatDate(date) {
 
 export default function AdminUsersPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { error: showErrorToast } = useToast()
   const router = useRouter()
   const [users, setUsers] = useState([])
   const [search, setSearch] = useState('')
@@ -69,7 +71,7 @@ export default function AdminUsersPage() {
       await loadUsers()
       setTimeout(() => setToast(null), 2000)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Unable to ban user')
+      showErrorToast(error?.response?.data?.message || 'Unable to ban user')
     }
   }
 
@@ -80,7 +82,7 @@ export default function AdminUsersPage() {
       await loadUsers()
       setTimeout(() => setToast(null), 2000)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Unable to unban user')
+      showErrorToast(error?.response?.data?.message || 'Unable to unban user')
     }
   }
 

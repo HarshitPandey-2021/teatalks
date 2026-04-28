@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import AdminSidebar from '@/components/AdminSidebar'
 import api from '@/lib/axios'
 
@@ -16,6 +17,7 @@ function timeAgo(d) {
 
 export default function AdminFlaggedPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { error: showErrorToast } = useToast()
   const router = useRouter()
   const [items, setItems] = useState([])
   const [statusFilter, setStatusFilter] = useState('pending')
@@ -28,7 +30,7 @@ export default function AdminFlaggedPage() {
     if (!authLoading && isAuthenticated && user?.role !== 'admin') router.push('/feed')
   }, [authLoading, isAuthenticated, user, router])
 
-  const loadItems = async (status = statusFilter, type = typeFilter) => {
+  const loadItems = useCallback(async (status = statusFilter, type = typeFilter) => {
     try {
       setLoadingData(true)
       const res = await api.get('/admin/flagged-content', {
@@ -43,17 +45,17 @@ export default function AdminFlaggedPage() {
     } finally {
       setLoadingData(false)
     }
-  }
+  }, [statusFilter, typeFilter])
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'admin') return
     loadItems()
-  }, [isAuthenticated, user])
+  }, [isAuthenticated, user?.role, loadItems])
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'admin') return
     loadItems(statusFilter, typeFilter)
-  }, [statusFilter, typeFilter])
+  }, [isAuthenticated, user?.role, statusFilter, typeFilter, loadItems])
 
   const filtered = useMemo(() => items, [items])
 
@@ -91,7 +93,7 @@ export default function AdminFlaggedPage() {
       await loadItems(statusFilter, typeFilter)
       setTimeout(() => setActionDone(null), 2000)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Admin action failed')
+      showErrorToast(error?.response?.data?.message || 'Admin action failed')
     }
   }
 

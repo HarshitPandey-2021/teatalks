@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { MAX_REPORT_REASON_LENGTH } from '@/lib/validation'
 
 const REASONS = [
   { key: 'harassment', label: 'Harassment or Bullying', icon: 'block' },
@@ -208,7 +209,7 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType = 'p
                 </p>
                 <textarea
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => setDescription(e.target.value.slice(0, MAX_REPORT_REASON_LENGTH))}
                   placeholder="Tell us more about what's wrong..."
                   style={{
                     width: '100%', minHeight: 80,
@@ -220,6 +221,9 @@ export default function ReportModal({ isOpen, onClose, onSubmit, targetType = 'p
                     lineHeight: 1.6,
                   }}
                 />
+                <p style={{ marginTop: '0.375rem', fontSize: '0.6875rem', color: '#9ca3af', textAlign: 'right' }}>
+                  {description.length}/{MAX_REPORT_REASON_LENGTH}
+                </p>
               </div>
             )}
 
