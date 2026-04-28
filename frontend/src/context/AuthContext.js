@@ -59,18 +59,29 @@ export function AuthProvider({ children }) {
     return user
   }, [persistSession, router])
 
-  const signup = useCallback(async (formData) => {
+  const signup = useCallback(async (formData, options = {}) => {
     const res = await api.post('/users/register', {
       campusName: formData.college,
       email: formData.email,
-      password: formData.password,
+      otp: formData.otp,
     })
     const { token, user } = res.data
 
     persistSession(token, user)
-    router.push('/feed')
+    if (options.redirect !== false) {
+      router.push('/feed')
+    }
     return user
   }, [persistSession, router])
+
+  const requestSignupOtp = useCallback(async (formData) => {
+    const res = await api.post('/users/register/request-otp', {
+      campusName: formData.college,
+      email: formData.email,
+      password: formData.password,
+    })
+    return res.data
+  }, [])
 
   const logout = useCallback(() => {
     sessionStorage.removeItem('teatalks_token')
@@ -95,10 +106,11 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     login,
     signup,
+    requestSignupOtp,
     logout,
     updateProfile,
     refreshUser,
-  }), [user, loading, login, signup, logout, updateProfile, refreshUser])
+  }), [user, loading, login, signup, requestSignupOtp, logout, updateProfile, refreshUser])
 
   return (
     <AuthContext.Provider value={value}>

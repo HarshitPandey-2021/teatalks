@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import CommentForm from './CommentForm'
+import api from '@/lib/axios'
 
 function timeAgo(dateStr) {
   if (!dateStr) return 'just now'
@@ -20,13 +21,13 @@ export default function CommentCard({
   depth = 0,
 }) {
   const [showReply, setShowReply] = useState(false)
-  const [vote, setVote] = useState(comment.userVote || null)
-  const [score, setScore] = useState(comment.score || 0)
+  const [vote, setVote] = useState(comment.userVote ?? null)
+  const [score, setScore] = useState(Number(comment.score || 0))
 
   const isOP = comment.anonymousName === postAuthorName
   const maxDepth = 2
 
-  const handleVote = useCallback((dir) => {
+  const handleVote = useCallback(async (dir) => {
     const prev = vote
     let newVote, delta = 0
 
@@ -42,7 +43,20 @@ export default function CommentCard({
 
     setVote(newVote)
     setScore((s) => s + delta)
-  }, [vote])
+    try {
+      const res = await api.post(`/comments/${comment._id}/vote`, {
+        vote: newVote === 'up' ? 1 : newVote === 'down' ? -1 : 0,
+      })
+      const updated = res.data?.comment
+      if (updated) {
+        setVote(updated.userVote ?? null)
+        setScore(Number(updated.score || 0))
+      }
+    } catch {
+      setVote(prev)
+      setScore((s) => s - delta)
+    }
+  }, [vote, comment._id])
 
   const handleReplySubmit = async (text) => {
     if (onReply) onReply(comment._id, text)

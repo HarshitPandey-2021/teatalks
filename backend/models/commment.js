@@ -15,6 +15,10 @@ const commentSchema = new mongoose.Schema({
     type: String,
     default: 'Anonymous'
   },
+  anonymousEmoji: {
+    type: String,
+    default: '🙂'
+  },
   text: {
     type: String,
     required: true

@@ -54,7 +54,6 @@ export default function AdminUsersPage() {
         const q = search.toLowerCase()
         return (
           (u.anonymousName || '').toLowerCase().includes(q) ||
-          (u.email || '').toLowerCase().includes(q) ||
           String(u._id || '').toLowerCase().includes(q)
         )
       }
@@ -190,8 +189,8 @@ export default function AdminUsersPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                     <div style={{ width: 48, height: 48, borderRadius: '50%', background: isBanned ? 'rgba(179,172,163,0.2)' : 'rgba(176,13,106,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', filter: isBanned ? 'grayscale(100%)' : 'none', opacity: isBanned ? 0.5 : 1 }}>{u.emoji || '🙂'}</div>
                     <div>
-                      <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#322e28', textDecoration: isBanned ? 'line-through' : 'none', opacity: isBanned ? 0.5 : 1 }}>{u.anonymousName || u.campusName || u.email}</p>
-                      <p style={{ fontSize: '0.75rem', color: '#7b766e' }}>{u.email}</p>
+                      <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#322e28', textDecoration: isBanned ? 'line-through' : 'none', opacity: isBanned ? 0.5 : 1 }}>{u.anonymousName || 'Anonymous'}</p>
+                      <p style={{ fontSize: '0.75rem', color: '#7b766e' }}>{u.branch || 'Student'} • {u.year || 'Unknown year'}</p>
                     </div>
                   </div>
 
@@ -238,7 +237,7 @@ export default function AdminUsersPage() {
               <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#b41340' }}>warning</span>
             </div>
             <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900, fontSize: '1.5rem', color: '#322e28', marginBottom: '0.5rem' }}>
-              Ban {confirmModal.anonymousName || confirmModal.campusName || confirmModal.email}?
+              Ban {confirmModal.anonymousName || 'this user'}?
             </h3>
             <p style={{ color: '#5f5b53', lineHeight: 1.6, marginBottom: '2rem', fontSize: '0.9375rem' }}>
               This will revoke their access. They will no longer be able to post or interact with campus threads.
