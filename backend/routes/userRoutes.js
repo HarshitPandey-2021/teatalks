@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   register,
+  requestRegistrationOtp,
   login,
   getMe,
   updateMe,
@@ -14,6 +15,7 @@ const {
 const protect = require('../middleware/authMiddleware');
 const detectToxicity = require('../services/toxicityService').detectToxicity;
 
+router.post('/register/request-otp', requestRegistrationOtp);
 router.post('/register', register);
 router.post('/login', login);
 router.post('/forgot-password', forgotPassword);

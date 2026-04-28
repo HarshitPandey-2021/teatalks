@@ -62,6 +62,12 @@ async function submitReply(postId, parentCommentId, text) {
   return res.data
 }
 
+async function submitCommentVote(commentId, vote) {
+  const mappedVote = vote === 'up' ? 1 : vote === 'down' ? -1 : 0
+  const res = await api.post(`/comments/${commentId}/vote`, { vote: mappedVote })
+  return res.data?.comment
+}
+
 /* ─────────────────────────────────────────────────────────────
    MOCK DATA (remove when API is wired)
 ───────────────────────────────────────────────────────────── */
@@ -248,21 +254,31 @@ function CommentRow({ comment, postAuthorName, user, onReply, postId, depth = 0 
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [vote, setVote] = useState(comment.userVote)
-  const [score, setScore] = useState(comment.score)
+  const [vote, setVote] = useState(comment.userVote ?? null)
+  const [score, setScore] = useState(Number(comment.score || 0))
   const [showAllReplies, setShowAllReplies] = useState(false)
 
   const replies = comment.replies || []
   const visibleReplies = showAllReplies ? replies : replies.slice(0, REPLIES_PREVIEW)
   const hiddenCount = replies.length - REPLIES_PREVIEW
 
-  const doVote = useCallback((dir) => {
+  const doVote = useCallback(async (dir) => {
     const prev = vote
     let nv, d = 0
     if (prev === dir) { nv = null; d = dir === 'up' ? -1 : 1 }
     else { nv = dir; d = prev === null ? (dir === 'up' ? 1 : -1) : (dir === 'up' ? 2 : -2) }
     setVote(nv); setScore(s => s + d)
-  }, [vote])
+    try {
+      const updated = await submitCommentVote(comment._id, nv)
+      if (updated) {
+        setVote(updated.userVote ?? null)
+        setScore(Number(updated.score || 0))
+      }
+    } catch {
+      setVote(prev)
+      setScore(s => s - d)
+    }
+  }, [vote, comment._id])
 
   const handleReplySubmit = async (e) => {
     e.preventDefault()

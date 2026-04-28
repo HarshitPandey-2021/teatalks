@@ -1,8 +1,27 @@
 const Comment = require('../models/comment');
 const Post = require('../models/posts');
 const User = require('../models/user');
+const CommentVote = require('../models/commentVote');
 const mongoose = require('mongoose');
 const { buildToxicityModeration } = require('../services/contentModerationService');
+
+async function serializeComment(commentDoc, viewerUserId = null) {
+  const comment = commentDoc.toObject ? commentDoc.toObject() : commentDoc;
+  let userVote = null;
+
+  if (viewerUserId) {
+    const voteDoc = await CommentVote.findOne({ commentId: comment._id, userId: viewerUserId }).select('value');
+    if (voteDoc?.value === 1) userVote = 'up';
+    if (voteDoc?.value === -1) userVote = 'down';
+  }
+
+  return {
+    ...comment,
+    anonymousEmoji: comment.anonymousEmoji || '🙂',
+    score: Number(comment.votes || 0),
+    userVote,
+  };
+}
 
 exports.createComment = async (req, res) => {
   try {
@@ -17,7 +36,7 @@ exports.createComment = async (req, res) => {
     const post = await Post.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    const user = await User.findById(req.user).select('anonymousName');
+    const user = await User.findById(req.user).select('anonymousName emoji');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const { toxicity, moderationFields } = await buildToxicityModeration(text.trim());
@@ -26,11 +45,12 @@ exports.createComment = async (req, res) => {
       postId: post._id,
       authorId: req.user,
       anonymousName: user.anonymousName,
+      anonymousEmoji: user.emoji,
       text: text.trim(),
       ...moderationFields,
     });
 
-    return res.status(201).json({ comment, toxicity });
+    return res.status(201).json({ comment: await serializeComment(comment, req.user), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -52,7 +72,7 @@ exports.createReply = async (req, res) => {
     const parentComment = await Comment.findById(req.params.parentCommentId);
     if (!parentComment) return res.status(404).json({ message: 'Parent comment not found' });
 
-    const user = await User.findById(req.user).select('anonymousName');
+    const user = await User.findById(req.user).select('anonymousName emoji');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const { toxicity, moderationFields } = await buildToxicityModeration(text.trim());
@@ -61,12 +81,13 @@ exports.createReply = async (req, res) => {
       postId: post._id,
       authorId: req.user,
       anonymousName: user.anonymousName,
+      anonymousEmoji: user.emoji,
       text: text.trim(),
       parentCommentId: parentComment._id,
       ...moderationFields,
     });
 
-    return res.status(201).json({ comment, toxicity });
+    return res.status(201).json({ comment: await serializeComment(comment, req.user), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -86,7 +107,8 @@ exports.listPostComments = async (req, res) => {
       ];
     }
     const comments = await Comment.find(query).sort({ createdAt: 1 });
-    return res.json({ comments });
+    const serializedComments = await Promise.all(comments.map((comment) => serializeComment(comment, req.user)));
+    return res.json({ comments: serializedComments });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -106,7 +128,7 @@ exports.updateComment = async (req, res) => {
     const { toxicity, moderationFields } = await buildToxicityModeration(comment.text);
     Object.assign(comment, moderationFields);
     await comment.save();
-    return res.json({ comment, toxicity });
+    return res.json({ comment: await serializeComment(comment, req.user), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -130,18 +152,37 @@ exports.deleteComment = async (req, res) => {
 
 exports.voteComment = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ message: 'Comment not found' });
+    }
     const { vote } = req.body;
-    if (![1, -1].includes(vote)) {
-      return res.status(400).json({ message: 'vote must be 1 or -1' });
+    if (![1, -1, 0].includes(vote)) {
+      return res.status(400).json({ message: 'vote must be 1, -1, or 0' });
     }
 
-    const comment = await Comment.findByIdAndUpdate(
-      req.params.id,
-      { $inc: { votes: vote } },
-      { new: true }
-    );
+    const comment = await Comment.findById(req.params.id);
     if (!comment) return res.status(404).json({ message: 'Comment not found' });
-    return res.json({ comment });
+
+    const existingVote = await CommentVote.findOne({ commentId: comment._id, userId: req.user });
+    const previousValue = existingVote?.value || 0;
+    const nextValue = vote;
+    const delta = nextValue - previousValue;
+
+    if (nextValue === 0) {
+      if (existingVote) await CommentVote.deleteOne({ _id: existingVote._id });
+    } else if (existingVote) {
+      existingVote.value = nextValue;
+      await existingVote.save();
+    } else {
+      await CommentVote.create({ commentId: comment._id, userId: req.user, value: nextValue });
+    }
+
+    if (delta !== 0) {
+      comment.votes = Number(comment.votes || 0) + delta;
+      await comment.save();
+    }
+
+    return res.json({ comment: await serializeComment(comment, req.user) });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }

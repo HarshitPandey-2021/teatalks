@@ -44,6 +44,28 @@ async function sendPasswordResetOtp(toEmail, otp) {
   });
 }
 
+async function sendRegistrationOtp(toEmail, otp) {
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@teatalks.local';
+  const subject = 'TeaTalks Registration OTP';
+  const text = `Your TeaTalks signup OTP is ${otp}. It expires in 10 minutes. If you did not request this, ignore this email.`;
+  const html = `<p>Your TeaTalks signup OTP is <strong>${otp}</strong>.</p><p>It expires in 10 minutes.</p><p>If you did not request this, ignore this email.</p>`;
+
+  const tx = getTransporter();
+  if (!tx) {
+    console.log(`Registration OTP for ${toEmail}: ${otp}`);
+    return;
+  }
+
+  await tx.sendMail({
+    from,
+    to: toEmail,
+    subject,
+    text,
+    html,
+  });
+}
+
 module.exports = {
   sendPasswordResetOtp,
+  sendRegistrationOtp,
 };

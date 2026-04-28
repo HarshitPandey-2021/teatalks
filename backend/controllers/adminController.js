@@ -105,11 +105,37 @@ exports.listUsers = async (req, res) => {
       reportCountMap.set(authorId, (reportCountMap.get(authorId) || 0) + 1);
     });
 
-    const enrichedUsers = users.map((user) => ({
-      ...user.toObject(),
-      postCount: postCountMap.get(String(user._id)) || 0,
-      reportCount: reportCountMap.get(String(user._id)) || 0,
-    }));
+    const duplicateCounter = new Map();
+    const enrichedUsers = [];
+
+    for (const user of users) {
+      const baseName = user.anonymousName || 'Anonymous';
+      const seenCount = duplicateCounter.get(baseName) || 0;
+      duplicateCounter.set(baseName, seenCount + 1);
+
+      const uniqueName = seenCount === 0
+        ? baseName
+        : `${baseName} ${String(user._id).slice(-4)}`;
+
+      if (uniqueName !== user.anonymousName) {
+        user.anonymousName = uniqueName;
+        await user.save();
+      }
+
+      enrichedUsers.push({
+        _id: user._id,
+        anonymousName: uniqueName,
+        emoji: user.emoji,
+        role: user.role,
+        branch: user.branch,
+        year: user.year,
+        banStatus: user.banStatus,
+        warningCount: user.warningCount,
+        createdAt: user.createdAt,
+        postCount: postCountMap.get(String(user._id)) || 0,
+        reportCount: reportCountMap.get(String(user._id)) || 0,
+      });
+    }
 
     return res.json({ users: enrichedUsers, page, limit });
   } catch (error) {

@@ -4,7 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const PasswordResetRequest = require('../models/passwordResetRequest');
-const { sendPasswordResetOtp } = require('../services/mailService');
+const PendingRegistration = require('../models/pendingRegistration');
+const { sendPasswordResetOtp, sendRegistrationOtp } = require('../services/mailService');
 const Comment = require('../models/comment');
 
 const ADJECTIVES = [
@@ -23,11 +24,25 @@ const EMOJIS = [
   '🦝', '🦅', '🦦', '🐱', '🐦',
 ];
 
-function generateIdentity() {
-  const index = Math.floor(Math.random() * ADJECTIVES.length);
+async function generateUniqueIdentity() {
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const index = Math.floor(Math.random() * ADJECTIVES.length);
+    const baseName = `${ADJECTIVES[index]} ${ANIMALS[index]}`;
+    const suffix = attempt === 0 ? '' : ` ${Math.floor(100 + Math.random() * 900)}`;
+    const anonymousName = `${baseName}${suffix}`;
+    const existingUser = await User.findOne({ anonymousName }).select('_id');
+    if (!existingUser) {
+      return {
+        anonymousName,
+        emoji: EMOJIS[index],
+      };
+    }
+  }
+
+  const fallbackIndex = Math.floor(Math.random() * ADJECTIVES.length);
   return {
-    anonymousName: `${ADJECTIVES[index]} ${ANIMALS[index]}`,
-    emoji: EMOJIS[index],
+    anonymousName: `${ADJECTIVES[fallbackIndex]} ${ANIMALS[fallbackIndex]} ${Date.now().toString().slice(-4)}`,
+    emoji: EMOJIS[fallbackIndex],
   };
 }
 
@@ -83,8 +98,11 @@ function getGenericForgotPasswordResponse() {
   return { message: 'If an account exists, an OTP has been sent.' };
 }
 
-// REGISTER
-exports.register = async (req, res) => {
+function getGenericRegistrationResponse() {
+  return { message: 'If the signup details are valid, an OTP has been sent.' };
+}
+
+exports.requestRegistrationOtp = async (req, res) => {
   try {
     const { campusName, email, password } = req.body;
     const normalizedEmail = normalizeEmail(email);
@@ -107,31 +125,95 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 8 characters long' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ message: 'Unable to register with provided credentials' });
+      return res.status(400).json({ message: 'Email already registered. Please log in instead.' });
     }
 
-    // Hash password only
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const identity = generateIdentity();
-
-    const user = await User.create({
-      campusName,
+    const activePending = await PendingRegistration.findOne({
       email: normalizedEmail,
-      password: hashedPassword,
+      consumedAt: null,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
+
+    if (activePending && Date.now() - new Date(activePending.createdAt).getTime() < 60 * 1000) {
+      return res.status(200).json(getGenericRegistrationResponse());
+    }
+
+    await PendingRegistration.updateMany(
+      { email: normalizedEmail, consumedAt: null },
+      { $set: { consumedAt: new Date() } }
+    );
+
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await PendingRegistration.create({
+      campusName: campusName.trim(),
+      email: normalizedEmail,
+      passwordHash: await bcrypt.hash(password, 10),
+      otpHash: hashOtp(otp),
+      expiresAt,
+      attemptCount: 0,
+    });
+
+    await sendRegistrationOtp(normalizedEmail, otp);
+    return res.status(200).json(getGenericRegistrationResponse());
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.register = async (req, res) => {
+  try {
+    const normalizedEmail = normalizeEmail(req.body?.email);
+    const otp = `${req.body?.otp || ''}`.trim();
+    if (!normalizedEmail || !otp) {
+      return res.status(400).json({ message: 'email and otp are required' });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail }).select('_id');
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered. Please log in instead.' });
+    }
+
+    const pendingRegistration = await PendingRegistration.findOne({
+      email: normalizedEmail,
+      consumedAt: null,
+    }).sort({ createdAt: -1 });
+
+    if (!pendingRegistration || pendingRegistration.expiresAt <= new Date()) {
+      return res.status(400).json({ message: 'OTP is invalid or expired' });
+    }
+    if (pendingRegistration.attemptCount >= 5) {
+      pendingRegistration.consumedAt = new Date();
+      await pendingRegistration.save();
+      return res.status(429).json({ message: 'Too many attempts. Request a new OTP.' });
+    }
+
+    if (hashOtp(otp) !== pendingRegistration.otpHash) {
+      pendingRegistration.attemptCount += 1;
+      if (pendingRegistration.attemptCount >= 5) {
+        pendingRegistration.consumedAt = new Date();
+      }
+      await pendingRegistration.save();
+      return res.status(400).json({ message: 'OTP is invalid or expired' });
+    }
+
+    const identity = await generateUniqueIdentity();
+    const user = await User.create({
+      campusName: pendingRegistration.campusName,
+      email: normalizedEmail,
+      password: pendingRegistration.passwordHash,
       anonymousName: identity.anonymousName,
       emoji: identity.emoji,
     });
 
-    console.log('Registered user', {
-      id: user._id.toString(),
-      collection: User.collection?.name,
-      db: User.db?.name
-    });
+    await PendingRegistration.updateMany(
+      { email: normalizedEmail, consumedAt: null },
+      { $set: { consumedAt: new Date() } }
+    );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: 'User registered successfully',
       ...buildAuthResponse(user),
     });
