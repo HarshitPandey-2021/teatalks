@@ -12,8 +12,8 @@ function readStoredUser() {
   }
 
   try {
-    const savedUser = localStorage.getItem('teatalks_user')
-    const savedToken = localStorage.getItem('teatalks_token')
+    const savedUser = sessionStorage.getItem('teatalks_user')
+    const savedToken = sessionStorage.getItem('teatalks_token')
 
     if (!savedUser || !savedToken) {
       return null
@@ -21,21 +21,33 @@ function readStoredUser() {
 
     return JSON.parse(savedUser)
   } catch {
-    localStorage.removeItem('teatalks_user')
-    localStorage.removeItem('teatalks_token')
+    sessionStorage.removeItem('teatalks_user')
+    sessionStorage.removeItem('teatalks_token')
     return null
   }
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(readStoredUser)
+  const [user, setUser] = useState(() => readStoredUser())
   const [loading] = useState(false)
   const router = useRouter()
 
   const persistSession = useCallback((token, nextUser) => {
-    localStorage.setItem('teatalks_token', token)
-    localStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+    sessionStorage.setItem('teatalks_token', token)
+    sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
     setUser(nextUser)
+  }, [])
+
+  const refreshUser = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('teatalks_token') : null
+    if (!token) return null
+    const res = await api.get('/users/me')
+    const nextUser = res.data?.user
+    if (nextUser) {
+      sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+      setUser(nextUser)
+    }
+    return nextUser || null
   }, [])
 
   const login = useCallback(async (email, password) => {
@@ -43,7 +55,7 @@ export function AuthProvider({ children }) {
     const { token, user } = res.data
 
     persistSession(token, user)
-    router.push('/feed')
+    router.push(user.role === 'admin' ? '/admin' : '/feed')
     return user
   }, [persistSession, router])
 
@@ -61,11 +73,21 @@ export function AuthProvider({ children }) {
   }, [persistSession, router])
 
   const logout = useCallback(() => {
-    localStorage.removeItem('teatalks_token')
-    localStorage.removeItem('teatalks_user')
+    sessionStorage.removeItem('teatalks_token')
+    sessionStorage.removeItem('teatalks_user')
     setUser(null)
     router.push('/login')
   }, [router])
+
+  const updateProfile = useCallback(async (payload) => {
+    const res = await api.patch('/users/me', payload)
+    const nextUser = res.data?.user
+    if (nextUser) {
+      sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+      setUser(nextUser)
+    }
+    return nextUser
+  }, [])
 
   const value = useMemo(() => ({
     user,
@@ -74,7 +96,9 @@ export function AuthProvider({ children }) {
     login,
     signup,
     logout,
-  }), [user, loading, login, signup, logout])
+    updateProfile,
+    refreshUser,
+  }), [user, loading, login, signup, logout, updateProfile, refreshUser])
 
   return (
     <AuthContext.Provider value={value}>

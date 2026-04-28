@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import PostCard from '@/components/PostCard'
 import { useAuth } from '@/context/AuthContext'
-import usePosts from '@/store/usePosts'
+import api from '@/lib/axios'
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // STATIC DATA
@@ -21,7 +21,7 @@ const SORTS = [
   { key: 'top', label: 'Top', icon: 'trending_up' },
 ]
 
-const TRENDING_TAGS = [
+const DEFAULT_TRENDING_TAGS = [
   { tag: 'DBMS', posts: 18 },
   { tag: 'LibraryAC', posts: 12 },
   { tag: 'MessHeist', posts: 9 },
@@ -30,93 +30,22 @@ const TRENDING_TAGS = [
   { tag: 'HostelLife', posts: 31 },
 ]
 
-const POSTS_DB = [
-  { _id: '1', anonymousEmoji: '🦊', anonymousName: 'Silent Fox', category: 'Academic', text: "Does anyone have Sharma sir's DBMS notes? Unit 4 specifically. Exam in 3 days 😭", imageUrl: null, tags: ['DBMS', 'AcademicStress'], score: 342, commentCount: 56, createdAt: new Date(Date.now() - 2 * 3600000).toISOString(), userVote: null },
-  { _id: '2', anonymousEmoji: '🐼', anonymousName: 'Sleepy Panda', category: 'Hostel', text: 'The mess food today was surprisingly... edible? Like, the paneer actually felt like paneer and not rubber. Did we get a new chef or is it just the sunset mood? 🌅', imageUrl: null, tags: ['MessFood', 'HostelLife'], score: 1200, commentCount: 89, createdAt: new Date(Date.now() - 5 * 3600000).toISOString(), userVote: null },
-  { _id: '3', anonymousEmoji: '🦄', anonymousName: 'Glitter Uni', category: 'Reviews', text: 'The new coffee shop near the main gate is a total vibe. ☕️ The cold brew is 10/10 and they play actual good indie music.', imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC01eKhfFsmA3tGd7JwM1zt4MilRfc7YOZcfrbNpQ-GmcjeQb-o-yIqZrjMnjQef2gOdTw0wCMDqnScxbrKrSpVcsB5swJlAcM8Y1SsJ_hv2-6lgoqlKy8m2tejHWfwaH5PFrxy_Ti5r5pQ-O_FeqoZI6BeFqAWQnnZ-2dWybRXPMU3bFi_vZPblxY-0d_iSg7w8yMCKYyNER_eWXWRiFbynAfi5C3f1bmgwceWzHu_rAc3-SOJ1JPyjjHGKnDKvZSiINv1wXgnjNxT', tags: ['CafeReview', 'CampusVibes'], score: 854, commentCount: 23, createdAt: new Date(Date.now() - 8 * 3600000).toISOString(), userVote: null },
-  { _id: '4', anonymousEmoji: '🦉', anonymousName: 'Night Owl', category: 'Rants', text: "Why does the WiFi in Hostel Block C work perfectly at 3 AM but completely dies during online classes? 📡💀 I swear they're throttling us during peak hours.", imageUrl: null, tags: ['WiFi', 'HostelProblems'], score: 567, commentCount: 34, createdAt: new Date(Date.now() - 12 * 3600000).toISOString(), userVote: null },
-  { _id: '5', anonymousEmoji: '🐸', anonymousName: 'Chilled Frog', category: 'General', text: 'Unpopular opinion: The campus at 6 AM is genuinely the most beautiful thing ever. Went for a walk today and saw peacocks near the sports complex. 🌄', imageUrl: null, tags: ['CampusLife', 'MorningVibes'], score: 923, commentCount: 41, createdAt: new Date(Date.now() - 18 * 3600000).toISOString(), userVote: null },
-  { _id: '6', anonymousEmoji: '🐝', anonymousName: 'Busy Bee', category: 'Academic', text: 'The placement cell just dropped intern opportunities for pre-final years. Check your email ASAP — some close in 48 hours. Grind szn is here.', imageUrl: null, tags: ['Placements', 'Internships'], score: 1456, commentCount: 112, createdAt: new Date(Date.now() - 1 * 3600000).toISOString(), userVote: null },
-  { _id: '7', anonymousEmoji: '🐉', anonymousName: 'Dragon Anon', category: 'Rants', text: "Someone in my wing plays guitar at 2 AM every single night. Bro you're not John Mayer, please let us sleep 💀🎸", imageUrl: null, tags: ['HostelLife', 'Rants'], score: 789, commentCount: 67, createdAt: new Date(Date.now() - 3 * 3600000).toISOString(), userVote: null },
-]
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// LIVE PULSE ENGINE (UPDATED — includes user posts)
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-const PULSE_ACTIONS = ['posted', 'commented', 'upvoted', 'trending']
-const EXTRA_EMOJIS = ['🐱', '🦋', '🐙', '🦩', '🐺', '🦎', '🐧', '🦔', '🐳', '🦜']
-const EXTRA_NAMES = ['Shadow Cat', 'Midnight Coder', 'Ghost Writer', 'Pixel Punk', 'Quiet Storm', 'Neon Tiger', 'Lazy Lynx', 'Crispy Crow', 'Dusk Walker', 'Cosmic Ant']
-
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
-let pulseIdCounter = 0
-
-function generatePulseEvent(allPostsPool) {
-  const pool = allPostsPool && allPostsPool.length > 0 ? allPostsPool : POSTS_DB
-  const action = pickRandom(PULSE_ACTIONS)
-  const id = ++pulseIdCounter
-
-  const useReal = Math.random() > 0.4
-  const post = pickRandom(pool)
-  const emoji = useReal ? post.anonymousEmoji : pickRandom(EXTRA_EMOJIS)
-  const name = useReal ? post.anonymousName : pickRandom(EXTRA_NAMES)
-  const tag = pickRandom(TRENDING_TAGS)
-
-  switch (action) {
-    case 'posted':
-      return {
-        id, icon: emoji,
-        text: (<><strong>{name}</strong> posted in{' '}<span style={{ color: '#b00d6a', fontWeight: 700 }}>#{pickRandom(post.tags || []) || post.category}</span></>),
-        time: 'just now', type: 'post',
-      }
-    case 'commented':
-      return {
-        id, icon: emoji,
-        text: (<><strong>{name}</strong> replied to a{' '}<span style={{ color: '#9a3412', fontWeight: 600 }}>{post.category}</span> thread</>),
-        time: `${Math.floor(Math.random() * 3) + 1}m ago`, type: 'comment',
-      }
-    case 'upvoted': {
-      const count = Math.floor(Math.random() * 20) + 5
-      return {
-        id, icon: '🔥',
-        text: (<>A post in <strong>#{pickRandom(post.tags || []) || post.category}</strong> just hit{' '}<span style={{ color: '#b00d6a', fontWeight: 700 }}>+{count}</span> votes</>),
-        time: 'now', type: 'vote',
-      }
-    }
-    case 'trending':
-      return {
-        id, icon: '📈',
-        text: (<><span style={{ color: '#ea6c00', fontWeight: 700 }}>#{tag.tag}</span> is picking up steam</>),
-        time: 'now', type: 'trend',
-      }
-    default:
-      return null
-  }
-}
-
-function generateUserPostPulse(post) {
-  const id = ++pulseIdCounter
-  const tag = post.tags && post.tags.length > 0 ? post.tags[0] : post.category
-  return {
-    id,
-    icon: post.anonymousEmoji,
-    text: (<><strong>{post.anonymousName}</strong> just posted in{' '}<span style={{ color: '#b00d6a', fontWeight: 700 }}>#{tag}</span></>),
-    time: 'just now',
-    type: 'post',
-    isUserPost: true,
-  }
-}
-
 const MAX_PULSE_ITEMS = 6
+
+function timeAgo(dateValue) {
+  if (!dateValue) return 'just now'
+  const diffSeconds = Math.floor((Date.now() - new Date(dateValue).getTime()) / 1000)
+  if (diffSeconds < 60) return 'just now'
+  if (diffSeconds < 3600) return `${Math.floor(diffSeconds / 60)}m ago`
+  if (diffSeconds < 86400) return `${Math.floor(diffSeconds / 3600)}h ago`
+  return `${Math.floor(diffSeconds / 86400)}d ago`
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // LIVE PULSE COMPONENT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-function LivePulse({ events, maxVisible = 3 }) {
+function LivePulse({ events, maxVisible = 3, onOpenPost }) {
   const visibleEvents = events.slice(0, maxVisible)
 
   return (
@@ -139,9 +68,10 @@ function LivePulse({ events, maxVisible = 3 }) {
               style={{
                 display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
                 padding: '0.45rem 0.625rem', borderRadius: '0.5rem',
-                transition: 'background 150ms ease', cursor: 'default',
+                transition: 'background 150ms ease', cursor: ev.postId ? 'pointer' : 'default',
                 background: ev.isUserPost ? 'rgba(176,13,106,0.04)' : 'transparent',
               }}
+              onClick={() => ev.postId && onOpenPost?.(ev.postId)}
               onMouseEnter={e => e.currentTarget.style.background = ev.isUserPost ? 'rgba(176,13,106,0.07)' : 'rgba(248,240,229,0.5)'}
               onMouseLeave={e => e.currentTarget.style.background = ev.isUserPost ? 'rgba(176,13,106,0.04)' : 'transparent'}
             >
@@ -181,7 +111,7 @@ function LivePulse({ events, maxVisible = 3 }) {
 // MOBILE LIVE BOTTOM SHEET
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-function MobileLiveSheet({ isOpen, onClose, pulseEvents }) {
+function MobileLiveSheet({ isOpen, onClose, pulseEvents, onOpenPost, trendingTags }) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -245,7 +175,7 @@ function MobileLiveSheet({ isOpen, onClose, pulseEvents }) {
                   background: '#fff', borderRadius: '0.75rem',
                   border: '1px solid rgba(234,225,213,0.3)', padding: '0.5rem 0.25rem',
                 }}>
-                  <LivePulse events={pulseEvents} maxVisible={5} />
+                  <LivePulse events={pulseEvents} maxVisible={5} onOpenPost={(id) => { onClose(); onOpenPost?.(id) }} />
                   {pulseEvents.length === 0 && (
                     <p style={{ fontSize: '0.75rem', color: '#b3a898', textAlign: 'center', padding: '1rem 0', margin: 0 }}>Warming up...</p>
                   )}
@@ -258,7 +188,7 @@ function MobileLiveSheet({ isOpen, onClose, pulseEvents }) {
                   <span className="scard-title" style={{ margin: 0, fontSize: '0.625rem' }}>Trending</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {TRENDING_TAGS.map((t) => (
+                  {trendingTags.map((t) => (
                     <Link key={t.tag} href={`/search?q=${t.tag}`} onClick={onClose}
                       style={{
                         padding: '0.4rem 0.875rem', borderRadius: '9999px',
@@ -333,78 +263,66 @@ export default function FeedPage() {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
-  const intervalRef = useRef(null)
-  const pulseInitialized = useRef(false)
-  const seenPostIdsRef = useRef(new Set())
-
-  // Zustand — live posts from store (persisted)
-  const livePosts = usePosts((state) => state.posts)
+  const allPostsRef = useRef([])
+  const [posts, setPosts] = useState([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const [editModalPost, setEditModalPost] = useState(null)
+  const [editForm, setEditForm] = useState({ text: '', category: 'General', tags: '' })
+  const [editImageFile, setEditImageFile] = useState(null)
+  const [editImagePreview, setEditImagePreview] = useState('')
+  const [removeEditImage, setRemoveEditImage] = useState(false)
+  const [editLoading, setEditLoading] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // Auth guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
   }, [authLoading, isAuthenticated, router])
 
-  // Merge live + static, dedupe, sort newest first
-  const allPosts = useMemo(() => {
-    const merged = [...livePosts, ...POSTS_DB]
-    const seen = new Set()
-    return merged.filter(p => {
-      if (seen.has(p._id)) return false
-      seen.add(p._id)
-      return true
-    })
-  }, [livePosts])
-
-  // ── Live Pulse engine ──
-  const addPulseEvent = useCallback((event) => {
-    setPulseEvents(prev => {
-      const next = [event, ...prev]
-      return next.slice(0, MAX_PULSE_ITEMS)
-    })
+  const fetchPosts = useCallback(async () => {
+    try {
+      const res = await api.get('/posts')
+      setPosts(res.data.posts || [])
+    } finally {
+      setPostsLoading(false)
+    }
   }, [])
 
-  // Inject user posts into live pulse when new ones appear
   useEffect(() => {
-    livePosts.forEach(post => {
-      if (post.isMine && !seenPostIdsRef.current.has(post._id)) {
-        seenPostIdsRef.current.add(post._id)
-        const pulseEv = generateUserPostPulse(post)
-        addPulseEvent(pulseEv)
-      }
+    if (isAuthenticated) fetchPosts()
+  }, [isAuthenticated, fetchPosts])
+
+  const allPosts = useMemo(() => posts, [posts])
+  useEffect(() => { allPostsRef.current = allPosts }, [allPosts])
+
+  // ── Live Pulse engine ──
+// Live events derived from real posts
+  useEffect(() => {
+    const toPulse = (post, index) => ({
+      id: `${post._id}-${index}`,
+      icon: post.anonymousEmoji || '🗨️',
+      text: (
+        <>
+          <strong>{post.anonymousName || 'Anonymous'}</strong> posted in{' '}
+          <span style={{ color: '#b00d6a', fontWeight: 700 }}>
+            #{(post.tags && post.tags[0]) || post.category || 'General'}
+          </span>
+        </>
+      ),
+      time: timeAgo(post.createdAt),
+      type: 'post',
+      postId: post._id,
+      isUserPost: String(post.authorId) === String(user?._id),
     })
-  }, [livePosts, addPulseEvent])
 
-  // Seed + interval for random pulse events
-  useEffect(() => {
-    if (pulseInitialized.current) return
-    pulseInitialized.current = true
+    const next = [...allPosts]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, MAX_PULSE_ITEMS)
+      .map(toPulse)
 
-    const seeds = []
-    for (let i = 0; i < 3; i++) {
-      const ev = generatePulseEvent(allPosts)
-      if (ev) {
-        ev.time = `${(i + 1) * 2}m ago`
-        seeds.push(ev)
-      }
-    }
-    setPulseEvents(prev => [...prev, ...seeds])
-
-    const tick = () => {
-      const currentPosts = usePosts.getState().posts
-      const pool = [...currentPosts, ...POSTS_DB]
-      const ev = generatePulseEvent(pool)
-      if (ev) addPulseEvent(ev)
-      const nextDelay = 3000 + Math.random() * 3000
-      intervalRef.current = setTimeout(tick, nextDelay)
-    }
-
-    intervalRef.current = setTimeout(tick, 2500)
-
-    return () => {
-      if (intervalRef.current) clearTimeout(intervalRef.current)
-    }
-  }, [addPulseEvent])
+    setPulseEvents(next)
+  }, [allPosts, user?._id])
 
   // ── Sorting / Filtering ──
   const filteredPosts = useMemo(() => {
@@ -429,11 +347,153 @@ export default function FeedPage() {
   }, [activeCategory, activeSort, allPosts])
 
   const sidebarPosts = useMemo(() => {
-    return [...allPosts].sort((a, b) => b.commentCount - a.commentCount).slice(0, 1)
+    return [...allPosts]
+      .sort((a, b) => {
+        const scoreA = (a.commentCount || 0) * 3 + (a.score || 0)
+        const scoreB = (b.commentCount || 0) * 3 + (b.score || 0)
+        if (scoreB !== scoreA) return scoreB - scoreA
+        return new Date(b.createdAt) - new Date(a.createdAt)
+      })
+      .slice(0, 1)
   }, [allPosts])
 
+  const trendingTags = useMemo(() => {
+    const counts = new Map()
+    allPosts.forEach((post) => {
+      const postTags = Array.isArray(post.tags) ? post.tags : []
+      postTags.forEach((tag) => {
+        const key = String(tag || '').trim()
+        if (!key) return
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+    })
+
+    const dynamic = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([tag, posts]) => ({ tag, posts }))
+
+    return dynamic.length > 0 ? dynamic : DEFAULT_TRENDING_TAGS
+  }, [allPosts])
+
+  const uploadImageToCloudinary = useCallback(async (file) => {
+    const sigRes = await api.post('/uploads/image-signature')
+    const { timestamp, signature, folder, apiKey, cloudName, publicId } = sigRes.data
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('api_key', apiKey)
+    formData.append('timestamp', timestamp)
+    formData.append('signature', signature)
+    formData.append('folder', folder)
+    formData.append('public_id', publicId)
+    const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!uploadRes.ok) {
+      const details = await uploadRes.json().catch(() => ({}))
+      throw new Error(details?.error?.message || 'Image upload failed')
+    }
+    return uploadRes.json()
+  }, [])
+
+  const handleDeletePost = async (postId) => {
+    setDeleteLoading(true)
+    try {
+      await api.delete(`/posts/${postId}`)
+      setPosts((prev) => prev.filter((p) => p._id !== postId))
+      setDeleteTarget(null)
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to delete post')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const openEditModal = (postId) => {
+    const target = posts.find((p) => p._id === postId)
+    if (!target) return
+    setEditForm({
+      text: target.text || '',
+      category: target.category || 'General',
+      tags: Array.isArray(target.tags) ? target.tags.join(', ') : '',
+    })
+    setEditImageFile(null)
+    setEditImagePreview(target.imageUrl || '')
+    setRemoveEditImage(false)
+    setEditModalPost(target)
+  }
+
+  const closeEditModal = () => {
+    if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview)
+    setEditModalPost(null)
+    setEditImageFile(null)
+    setEditImagePreview('')
+    setRemoveEditImage(false)
+  }
+
+  const submitEditPost = async () => {
+    if (!editModalPost) return
+    setEditLoading(true)
+    try {
+      const tags = editForm.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+      const payload = {
+        text: editForm.text,
+        category: editForm.category,
+        tags,
+      }
+      if (editImageFile) {
+        const uploaded = await uploadImageToCloudinary(editImageFile)
+        payload.image = uploaded.secure_url
+        payload.imagePublicId = uploaded.public_id
+        payload.imageMeta = {
+          width: uploaded.width,
+          height: uploaded.height,
+          format: uploaded.format,
+          bytes: uploaded.bytes,
+        }
+      } else if (removeEditImage) {
+        payload.image = ''
+        payload.imagePublicId = ''
+        payload.imageMeta = null
+      }
+
+      const res = await api.patch(`/posts/${editModalPost._id}`, payload)
+      const updatedPost = res?.data?.post
+      const isVisible = updatedPost?.visibility === 'visible' || updatedPost?.visibility === undefined || updatedPost?.visibility === null
+
+      if (updatedPost && isVisible) {
+        setPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updatedPost } : p)))
+      } else {
+        setPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
+        alert('Your post was hidden for review because it was detected as toxic.')
+      }
+      closeEditModal()
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update post')
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  const handleVotePost = useCallback(async (postId, nextVote) => {
+    const vote = nextVote === 'up' ? 1 : nextVote === 'down' ? -1 : 0
+    try {
+      const res = await api.post(`/posts/${postId}/vote`, { vote })
+      const updated = res?.data?.post
+      if (updated?._id) {
+        setPosts((prev) => prev.map((p) => (p._id === updated._id ? { ...p, ...updated } : p)))
+      }
+    } catch {
+      // Keep UI usable even when request fails.
+    }
+  }, [])
+
   // ── Loading state ──
-  if (authLoading || !isAuthenticated) {
+  if (authLoading || !isAuthenticated || postsLoading) {
     return (
       <div style={{
         minHeight: '100vh', background: '#fefcf9',
@@ -639,7 +699,13 @@ export default function FeedPage() {
                   }}
                   layout
                 >
-                  <PostCard {...post} />
+                  <PostCard
+                    {...post}
+                    isMine={String(post.authorId) === String(user?._id)}
+                    onVote={handleVotePost}
+                    onEdit={openEditModal}
+                    onDelete={(id) => setDeleteTarget(posts.find((p) => p._id === id) || null)}
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -673,7 +739,7 @@ export default function FeedPage() {
                 textAlign: 'center', padding: '1.25rem 0 0.5rem',
                 color: '#c8c1b8', fontSize: '0.6875rem',
                 fontWeight: 600, letterSpacing: '0.04em',
-              }}>You're all caught up ✨</div>
+              }}>You&apos;re all caught up ✨</div>
             )}
           </div>
         </main>
@@ -695,7 +761,7 @@ export default function FeedPage() {
               <span className="scard-title" style={{ margin: 0 }}>Live</span>
             </div>
 
-            <LivePulse events={pulseEvents} maxVisible={3} />
+            <LivePulse events={pulseEvents} maxVisible={3} onOpenPost={(id) => router.push(`/posts/${id}`)} />
 
             {pulseEvents.length === 0 && (
               <p style={{
@@ -721,7 +787,7 @@ export default function FeedPage() {
               overflowX: 'auto', paddingBottom: '2px',
               WebkitOverflowScrolling: 'touch',
             }}>
-              {TRENDING_TAGS.map((t) => (
+              {trendingTags.map((t) => (
                 <Link key={t.tag} href={`/search?q=${t.tag}`}
                   style={{
                     padding: '0.3125rem 0.75rem', borderRadius: '9999px',
@@ -758,7 +824,7 @@ export default function FeedPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {sidebarPosts.map((post) => (
-                <PostCard key={post._id} {...post} compact />
+                <PostCard key={post._id} {...post} compact isMine={String(post.authorId) === String(user?._id)} />
               ))}
             </div>
           </div>
@@ -785,8 +851,113 @@ export default function FeedPage() {
           isOpen={mobileSheetOpen}
           onClose={() => setMobileSheetOpen(false)}
           pulseEvents={pulseEvents}
+          trendingTags={trendingTags}
+          onOpenPost={(id) => router.push(`/posts/${id}`)}
         />
       </div>
+
+      <AnimatePresence>
+        {editModalPost && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) closeEditModal() }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(16,12,8,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              style={{ width: '100%', maxWidth: 520, background: '#fff', borderRadius: 16, padding: '1rem', border: '1px solid rgba(234,225,213,0.45)' }}
+            >
+              <h3 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1rem', fontWeight: 800, color: '#2e2318' }}>Edit Post</h3>
+              <p style={{ margin: '0.35rem 0 0.8rem', color: '#857f75', fontSize: '0.8rem' }}>Update your content, category and tags.</p>
+              <textarea
+                value={editForm.text}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, text: e.target.value }))}
+                rows={5}
+                style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(211,200,185,0.45)', padding: '0.7rem', marginBottom: '0.65rem', resize: 'vertical' }}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                  style={{ borderRadius: 10, border: '1px solid rgba(211,200,185,0.45)', padding: '0.6rem' }}
+                >
+                  {CATEGORIES.filter((c) => c !== 'All').map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input
+                  value={editForm.tags}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, tags: e.target.value }))}
+                  placeholder="tags (comma separated)"
+                  style={{ borderRadius: 10, border: '1px solid rgba(211,200,185,0.45)', padding: '0.6rem' }}
+                />
+              </div>
+              <div style={{ marginTop: '0.7rem' }}>
+                <label style={{ fontSize: '0.74rem', fontWeight: 700, color: '#6b665e', display: 'block', marginBottom: '0.35rem' }}>Image</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview)
+                      setEditImageFile(file)
+                      setEditImagePreview(URL.createObjectURL(file))
+                      setRemoveEditImage(false)
+                    }}
+                    style={{ fontSize: '0.75rem' }}
+                  />
+                  {editImagePreview && !removeEditImage && (
+                    <button onClick={() => { setRemoveEditImage(true); setEditImageFile(null) }} style={{ borderRadius: 999, border: '1px solid rgba(180,19,64,0.2)', background: 'rgba(180,19,64,0.06)', color: '#b41340', padding: '0.3rem 0.75rem', fontWeight: 700, cursor: 'pointer' }}>Remove image</button>
+                  )}
+                </div>
+                {editImagePreview && !removeEditImage && (
+                  <img src={editImagePreview} alt="edit preview" style={{ marginTop: '0.5rem', width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, border: '1px solid rgba(211,200,185,0.35)' }} />
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.9rem' }}>
+                <button onClick={closeEditModal} style={{ borderRadius: 999, border: '1px solid rgba(211,200,185,0.4)', background: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={submitEditPost} disabled={editLoading} style={{ borderRadius: 999, border: 'none', background: 'linear-gradient(135deg,#b00d6a,#f97316)', color: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer', opacity: editLoading ? 0.7 : 1 }}>
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null) }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(16,12,8,0.5)', zIndex: 1201, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.98 }}
+              style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 16, padding: '1rem' }}
+            >
+              <h3 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, color: '#2e2318' }}>Delete this post?</h3>
+              <p style={{ color: '#7b766e', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                This action cannot be undone. Your post and its comments will be removed permanently.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button onClick={() => setDeleteTarget(null)} style={{ borderRadius: 999, border: '1px solid rgba(211,200,185,0.4)', background: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Keep</button>
+                <button onClick={() => handleDeletePost(deleteTarget._id)} disabled={deleteLoading} style={{ borderRadius: 999, border: 'none', background: '#b41340', color: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer', opacity: deleteLoading ? 0.7 : 1 }}>
+                  {deleteLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

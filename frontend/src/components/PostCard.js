@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import ReportModal from './ReportModal'
+import api from '@/lib/axios'
 
 const CAT_STYLES = {
   Academic: { bg: 'rgba(176,13,106,0.06)', color: '#b00d6a', border: 'rgba(176,13,106,0.10)' },
@@ -173,11 +174,12 @@ export default function PostCard({
   category = 'General', text = '', imageUrl, tags = [],
   score = 0, commentCount = 0, createdAt, userVote = null,
   isMine = false, poll = null,
-  onVote, onComment, onShare, compact = false,
+  onVote, onComment, onShare, onEdit, onDelete, compact = false,
 }) {
   const [vote, setVote] = useState(userVote)
   const [sc, setSc] = useState(score)
   const [reportOpen, setReportOpen] = useState(false)
+  const [reportError, setReportError] = useState('')
   const [votePulse, setVotePulse] = useState(null)
   const [shareFlash, setShareFlash] = useState(false)
   const router = useRouter()
@@ -192,7 +194,12 @@ export default function PostCard({
     setSc(s => s + d)
     setVotePulse(dir)
     setTimeout(() => setVotePulse(null), 220)
-    if (onVote) onVote(_id, nv)
+    if (onVote) {
+      onVote(_id, nv)
+      return
+    }
+    const voteValue = nv === 'up' ? 1 : nv === 'down' ? -1 : 0
+    api.post(`/posts/${_id}/vote`, { vote: voteValue }).catch(() => {})
   }, [vote, _id, onVote])
 
   const doShare = useCallback((e) => {
@@ -498,6 +505,26 @@ export default function PostCard({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
+            {isMine && (
+              <>
+                <button
+                  className="tt-action-btn"
+                  onClick={e => { e.stopPropagation(); onEdit?.(_id) }}
+                  aria-label="Edit post"
+                  style={{ color: '#8b5cf6' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit</span>
+                </button>
+                <button
+                  className="tt-action-btn"
+                  onClick={e => { e.stopPropagation(); onDelete?.(_id) }}
+                  aria-label="Delete post"
+                  style={{ color: '#b41340' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete</span>
+                </button>
+              </>
+            )}
             <button
               className={`tt-action-btn${shareFlash ? ' share-flash' : ''}`}
               onClick={doShare}
@@ -522,9 +549,36 @@ export default function PostCard({
       <ReportModal
         isOpen={reportOpen}
         onClose={() => setReportOpen(false)}
-        onSubmit={async (data) => console.log('Report:', _id, data)}
+        onSubmit={async (data) => {
+          setReportError('')
+          try {
+            await api.post('/reports', {
+              targetId: _id,
+              targetType: 'Post',
+              reason: data.description
+                ? `${data.reason}: ${data.description}`.slice(0, 500)
+                : data.reason,
+            })
+          } catch (error) {
+            const message = error?.response?.data?.message || 'Failed to submit report'
+            setReportError(message)
+            throw error
+          }
+        }}
         targetType="post"
       />
+      {reportError ? (
+        <div
+          style={{
+            marginTop: '0.5rem',
+            color: '#b91c1c',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+          }}
+        >
+          {reportError}
+        </div>
+      ) : null}
     </>
   )
 }
