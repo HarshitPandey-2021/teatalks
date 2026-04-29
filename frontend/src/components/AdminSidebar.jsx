@@ -6,10 +6,10 @@ import NotificationBell from './NotificationBell'
 
 const NAV_ITEMS = [
   { key: 'overview', label: 'Overview', icon: 'dashboard', href: '/admin' },
+  { key: 'analytics', label: 'Analytics', icon: 'monitoring', href: '/admin/analytics' },
   { key: 'flagged', label: 'Flagged Content', icon: 'flag', href: '/admin/flagged' },
   { key: 'users', label: 'User Management', icon: 'group', href: '/admin/users' },
 ]
-
 export default function AdminSidebar({ activePage = 'overview' }) {
   const { logout } = useAuth()
 
@@ -17,8 +17,8 @@ export default function AdminSidebar({ activePage = 'overview' }) {
     <>
       <div className="admin-floating-notifications" style={{
         position: 'fixed',
-        top: '1rem',
-        right: '1rem',
+        top: '1.25rem',
+        right: '1.25rem',
         zIndex: 90,
         display: 'none',
       }}>
@@ -28,78 +28,94 @@ export default function AdminSidebar({ activePage = 'overview' }) {
       {/* Desktop Sidebar */}
       <aside className="admin-sidebar-desktop" style={{
         position: 'fixed', left: 0, top: 0, bottom: 0,
-        width: 260, zIndex: 50,
-        background: '#f8f0e5',
+        width: 280, zIndex: 50,
+        background: '#ffffff',
         display: 'none', flexDirection: 'column',
-        padding: '2rem 0',
-        borderRight: '1px solid rgba(179,172,163,0.1)',
+        padding: '2.5rem 0',
+        borderRight: '1px solid rgba(234, 225, 213, 0.4)',
+        boxShadow: '4px 0 24px rgba(50, 46, 40, 0.03)',
       }}>
         <style>{`
           @media (min-width: 1024px) {
             .admin-sidebar-desktop { display: flex !important; }
-            .admin-main-content { margin-left: 260px !important; }
+            .admin-main-content { margin-left: 280px !important; }
             .admin-mobile-nav { display: none !important; }
             .admin-floating-notifications { display: block !important; }
           }
         `}</style>
 
         {/* Logo */}
-        <div style={{ padding: '0 2rem', marginBottom: '2.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div style={{ padding: '0 2rem', marginBottom: '3rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div style={{
-              width: 40, height: 40, borderRadius: '0.75rem',
-              background: 'linear-gradient(135deg, #b00d6a, #904800)',
+              width: 48, height: 48, borderRadius: '14px',
+              background: 'linear-gradient(135deg, #ec4899, #fb923c)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#ffffff',
+              boxShadow: '0 8px 20px rgba(236, 72, 153, 0.2)',
             }}>
-              <span className="material-symbols-outlined" style={{
-                fontSize: 22,
-                fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24",
+              <span className="material-symbols-outlined mat-fill" style={{
+                fontSize: 26, color: '#ffffff',
               }}>local_cafe</span>
             </div>
             <div>
               <h1 style={{
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontWeight: 900, fontSize: '1.25rem',
-                color: '#322e28', lineHeight: 1.2,
+                fontWeight: 900, fontSize: '1.375rem',
+                background: 'linear-gradient(135deg, #b00d6a, #fb923c)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                lineHeight: 1.2, marginBottom: '0.125rem',
               }}>TeaTalks</h1>
               <p style={{
-                fontSize: '0.6875rem', fontWeight: 600,
-                color: '#b00d6a', opacity: 0.8,
-              }}>Editorial Control</p>
+                fontSize: '0.6875rem', fontWeight: 700,
+                color: '#9b958c',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}>Admin Panel</p>
             </div>
           </div>
         </div>
 
         {/* Nav Items */}
-        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0 1.25rem' }}>
           {NAV_ITEMS.map((item) => {
             const isActive = activePage === item.key
             return (
               <Link key={item.key} href={item.href} style={{
                 display: 'flex', alignItems: 'center', gap: '1rem',
-                margin: '0 1rem', padding: '0.875rem 1.5rem',
-                borderRadius: 9999, textDecoration: 'none',
-                transition: 'all 0.2s',
+                padding: '1rem 1.5rem',
+                borderRadius: '14px', textDecoration: 'none',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                fontFamily: "'Inter', sans-serif",
                 ...(isActive ? {
-                  background: 'linear-gradient(135deg, #b00d6a, #904800)',
+                  background: 'linear-gradient(135deg, #ec4899, #fb923c)',
                   color: '#ffffff',
-                  boxShadow: '0 8px 24px rgba(176,13,106,0.2)',
+                  boxShadow: '0 8px 24px rgba(236, 72, 153, 0.25)',
+                  transform: 'translateX(4px)',
                 } : {
                   background: 'transparent',
-                  color: '#322e28',
-                  opacity: 0.6,
+                  color: '#6b665e',
                 }),
-              }}>
-                <span className="material-symbols-outlined" style={{
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'rgba(248, 240, 229, 0.6)'
+                  e.currentTarget.style.color = '#322e28'
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = '#6b665e'
+                }
+              }}
+              >
+                <span className={`material-symbols-outlined ${isActive ? 'mat-fill' : ''}`} style={{
                   fontSize: 22,
-                  fontVariationSettings: isActive
-                    ? "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24"
-                    : "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
                 }}>{item.icon}</span>
                 <span style={{
-                  fontFamily: "'Inter', sans-serif",
-                  fontWeight: 600, fontSize: '0.875rem',
+                  fontWeight: isActive ? 700 : 600,
+                  fontSize: '0.9375rem',
                   letterSpacing: '0.01em',
                 }}>{item.label}</span>
               </Link>
@@ -108,14 +124,25 @@ export default function AdminSidebar({ activePage = 'overview' }) {
         </nav>
 
         {/* Bottom */}
-        <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{ padding: '0 1.25rem', marginTop: '1rem' }}>
           <button onClick={logout} style={{
             display: 'flex', alignItems: 'center', gap: '1rem',
-            padding: '0.75rem 1.5rem', borderRadius: 9999,
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#b41340', fontSize: '0.875rem', fontWeight: 600,
+            padding: '1rem 1.5rem', borderRadius: '14px',
+            background: 'rgba(180, 19, 64, 0.06)', border: '1px solid rgba(180, 19, 64, 0.1)',
+            cursor: 'pointer',
+            color: '#b41340', fontSize: '0.9375rem', fontWeight: 700,
             fontFamily: "'Inter', sans-serif", width: '100%',
-          }}>
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(180, 19, 64, 0.1)'
+            e.currentTarget.style.borderColor = 'rgba(180, 19, 64, 0.2)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(180, 19, 64, 0.06)'
+            e.currentTarget.style.borderColor = 'rgba(180, 19, 64, 0.1)'
+          }}
+          >
             <span className="material-symbols-outlined" style={{ fontSize: 22 }}>logout</span>
             Logout
           </button>
@@ -125,51 +152,60 @@ export default function AdminSidebar({ activePage = 'overview' }) {
       {/* Mobile Top Nav */}
       <div className="admin-mobile-nav" style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(253,245,235,0.9)',
+        background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-        padding: '1rem',
-        borderBottom: '1px solid rgba(179,172,163,0.1)',
+        padding: '1rem 1.25rem',
+        borderBottom: '1px solid rgba(234, 225, 213, 0.4)',
+        boxShadow: '0 4px 16px rgba(50, 46, 40, 0.03)',
       }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', marginBottom: '0.75rem',
+          alignItems: 'center', marginBottom: '1rem',
         }}>
           <Link href="/admin" style={{
             textDecoration: 'none',
             fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontWeight: 900, fontSize: '1.25rem',
-            background: 'linear-gradient(135deg, #b00d6a, #904800)',
+            fontWeight: 900, fontSize: '1.375rem',
+            background: 'linear-gradient(135deg, #b00d6a, #fb923c)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          }}>TeaTalks Admin</Link>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <NotificationBell panelStyle={{ top: '2.75rem', right: 0, left: 'auto' }} />
+            display: 'flex', alignItems: 'center', gap: '0.625rem',
+          }}>
+            <span className="material-symbols-outlined mat-fill" style={{ fontSize: 24, color: '#ec4899' }}>local_cafe</span>
+            TeaTalks
+          </Link>
+          <div style={{ display: 'flex', gap: '0.625rem', alignItems: 'center' }}>
+            <NotificationBell panelStyle={{ top: '3rem', right: 0, left: 'auto' }} />
             <button onClick={logout} style={{
-              padding: '0.5rem', borderRadius: '50%',
-              background: '#fef2f2', color: '#b41340',
-              border: 'none', cursor: 'pointer', display: 'flex',
+              padding: '0.5rem', borderRadius: '12px',
+              background: 'rgba(180, 19, 64, 0.06)', color: '#b41340',
+              border: '1px solid rgba(180, 19, 64, 0.1)', cursor: 'pointer', display: 'flex',
             }}>
               <span className="material-symbols-outlined" style={{ fontSize: 20 }}>logout</span>
             </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto' }}>
+        <div className="no-sb" style={{ display: 'flex', gap: '0.625rem', overflowX: 'auto', paddingBottom: '2px' }}>
+          <style>{`.no-sb::-webkit-scrollbar { display: none; } .no-sb { -ms-overflow-style: none; scrollbar-width: none; }`}</style>
           {NAV_ITEMS.map((item) => {
             const isActive = activePage === item.key
             return (
               <Link key={item.key} href={item.href} style={{
-                padding: '0.5rem 1rem', borderRadius: 9999,
+                padding: '0.625rem 1.25rem', borderRadius: 9999,
                 whiteSpace: 'nowrap', textDecoration: 'none',
-                fontSize: '0.8125rem', fontWeight: 700,
-                display: 'flex', alignItems: 'center', gap: '0.375rem',
+                fontSize: '0.875rem', fontWeight: 700,
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
                 transition: 'all 0.2s',
+                fontFamily: "'Inter', sans-serif",
                 ...(isActive ? {
-                  background: 'linear-gradient(135deg, #b00d6a, #904800)',
+                  background: 'linear-gradient(135deg, #ec4899, #fb923c)',
                   color: '#ffffff',
+                  boxShadow: '0 4px 12px rgba(236, 72, 153, 0.2)',
                 } : {
-                  background: '#f8f0e5', color: '#5f5b53',
+                  background: 'rgba(248, 240, 229, 0.5)', color: '#6b665e',
+                  border: '1px solid rgba(234, 225, 213, 0.3)',
                 }),
               }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{item.icon}</span>
+                <span className={`material-symbols-outlined ${isActive ? 'mat-fill' : ''}`} style={{ fontSize: 18 }}>{item.icon}</span>
                 {item.label}
               </Link>
             )

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, Lock, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Lock, ArrowRight, ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { isValidEmail, isValidOtp, isValidPassword, PASSWORD_MESSAGE } from '@/lib/validation'
@@ -54,6 +54,23 @@ const DEFAULT_COLLEGES = [
   'National PG College',
 ]
 
+// Calculate password strength
+const getPasswordStrength = (password) => {
+  if (!password) return { score: 0, label: '', color: '' }
+  
+  let score = 0
+  if (password.length >= 8) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[a-z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++
+  
+  if (score <= 2) return { score: 20, label: 'Weak', color: '#dc2626' }
+  if (score === 3) return { score: 40, label: 'Fair', color: '#f59e0b' }
+  if (score === 4) return { score: 70, label: 'Good', color: '#10b981' }
+  return { score: 100, label: 'Strong', color: '#16a34a' }
+}
+
 export default function SignupPage() {
   const [form, setForm] = useState({ college: '', email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
@@ -69,6 +86,7 @@ export default function SignupPage() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [colleges, setColleges] = useState(DEFAULT_COLLEGES)
   const [tickerIndex, setTickerIndex] = useState(0)
+  const [passwordStrength, setPasswordStrength] = useState({ score: 0, label: '', color: '' })
 
   const dropdownRef = useRef(null)
   const { signup, requestSignupOtp, isAuthenticated, loading: authLoading } = useAuth()
@@ -103,6 +121,11 @@ export default function SignupPage() {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
     setFieldErrors((prev) => { const c = { ...prev }; delete c[name]; return c })
+    
+    // Real-time password strength
+    if (name === 'password') {
+      setPasswordStrength(getPasswordStrength(value))
+    }
   }
 
   const selectCollege = (college) => {
@@ -181,7 +204,7 @@ export default function SignupPage() {
   if (authLoading || isAuthenticated) return null
 
   const currentPost = POSTS[tickerIndex]
-  const isBlurred = tickerIndex !== 0 // first post readable, rest blurred
+  const isBlurred = tickerIndex !== 0
 
   return (
     <div className="tt-root">
@@ -258,139 +281,142 @@ export default function SignupPage() {
           }
         }
 
-     
-.tt-left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem 1.25rem;
-  overflow-y: auto;
-  flex: 1;
-}
-@media (min-width: 768px) {
-  .tt-left {
-    padding: 2.5rem 3rem;
-  }
-}
+        .tt-left {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 2rem 1.25rem;
+          overflow-y: auto;
+          flex: 1;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .tt-left::-webkit-scrollbar {
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .tt-left {
+            padding: 2.5rem 3rem;
+          }
+        }
   
-.tt-form-inner {
-  width: 100%;
-  max-width: 370px;
-}
-  /* MOBILE TICKER */
-.tt-ticker {
-  flex-shrink: 0;
-  position: relative;
-  width: 100%;
-  height: 72px;
-  overflow: hidden;
-  border-radius: 12px;
-}
-@media (min-width: 768px) {
-  .tt-ticker {
-    display: none;
-  }
-}
-       .tt-ticker-card {
-  position: relative; /* changed from absolute */
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.625rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  overflow: hidden;
-  margin-bottom: 0.75rem; /* spacing between stacked cards */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05); /* subtle shadow for depth */
-  width: 100%; /* full width for responsiveness */
-  z-index: 0;
-}
+        .tt-form-inner {
+          width: 100%;
+          max-width: 370px;
+        }
 
-/* Top section with avatar, handle, tag, time */
-.tt-ticker-top {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  flex-shrink: 0;
-  flex-wrap: wrap; /* allow items to wrap on small screens */
-}
+        /* MOBILE TICKER */
+        .tt-ticker {
+          flex-shrink: 0;
+          position: relative;
+          width: 100%;
+          height: 72px;
+          overflow: hidden;
+          border-radius: 12px;
+        }
+        @media (min-width: 768px) {
+          .tt-ticker {
+            display: none;
+          }
+        }
 
-.tt-ticker-avatar {
-  font-size: 0.875rem;
-  line-height: 1;
-}
+        .tt-ticker-card {
+          position: relative;
+          background: rgba(255, 255, 255, 0.95);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 0.625rem 0.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          overflow: hidden;
+          margin-bottom: 0.75rem;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+          width: 100%;
+          z-index: 0;
+        }
 
-.tt-ticker-handle {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--warm-brown);
-}
+        .tt-ticker-top {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          flex-shrink: 0;
+          flex-wrap: wrap;
+        }
 
-.tt-ticker-tag {
-  font-size: 0.5625rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
+        .tt-ticker-avatar {
+          font-size: 0.875rem;
+          line-height: 1;
+        }
 
-.tt-ticker-time {
-  font-size: 0.625rem;
-  color: var(--soft-brown);
-  margin-left: auto;
-  opacity: 0.6;
-  flex-shrink: 0;
-}
+        .tt-ticker-handle {
+          font-size: 0.6875rem;
+          font-weight: 600;
+          color: var(--warm-brown);
+        }
 
-/* Main text section */
-.tt-ticker-text {
-  font-size: 0.75rem;
-  line-height: 1.4;
-  color: var(--medium-brown);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-break: break-word; /* prevent overflow on mobile */
-}
+        .tt-ticker-tag {
+          font-size: 0.5625rem;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          padding: 1px 6px;
+          border-radius: 999px;
+        }
 
-/* Optional blur overlay */
-.tt-ticker-blur {
-  filter: blur(4px);
-   opacity: 0.85;
-  user-select: none;
-}
+        .tt-ticker-time {
+          font-size: 0.625rem;
+          color: var(--soft-brown);
+          margin-left: auto;
+          opacity: 0.6;
+          flex-shrink: 0;
+        }
 
-.tt-ticker-overlay {
-  position: absolute;
-  inset: 0; /* top/right/bottom/left all 0 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  font-size: 0.6rem; /* slightly bigger for readability */
-  color: rgba(190, 24, 93, 0.55); /* keep subtle pink */
-  pointer-events: none;
-  margin-top:0.7rem;
-}
+        .tt-ticker-text {
+          font-size: 0.75rem;
+          line-height: 1.4;
+          color: var(--medium-brown);
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          word-break: break-word;
+        }
 
-/* Mobile responsiveness */
-@media (max-width: 480px) {
-  .tt-ticker-card {
-    padding: 0.5rem 0.625rem;
-    border-radius: 10px;
-  }
+        .tt-ticker-blur {
+          filter: blur(4px);
+          opacity: 0.85;
+          user-select: none;
+        }
 
-  .tt-ticker-top {
-    gap: 0.25rem;
-  }
+        .tt-ticker-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          font-size: 0.6rem;
+          color: rgba(190, 24, 93, 0.55);
+          pointer-events: none;
+          margin-top:0.7rem;
+        }
 
-  .tt-ticker-text {
-    -webkit-line-clamp: 3; /* allow slightly more text on small screens */
-  }
-}
+        @media (max-width: 480px) {
+          .tt-ticker-card {
+            padding: 0.5rem 0.625rem;
+            border-radius: 10px;
+          }
+
+          .tt-ticker-top {
+            gap: 0.25rem;
+          }
+
+          .tt-ticker-text {
+            -webkit-line-clamp: 3;
+          }
+        }
+
         /* HEADLINE */
         .tt-headline {
           font-family: 'Plus Jakarta Sans', sans-serif;
@@ -412,15 +438,16 @@ export default function SignupPage() {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
-      .tt-subline {
-  font-size: 0.85rem;
-  color: var(--soft-brown);
-  line-height: 1.5;
-  margin-bottom: 1.375rem;
-}
-@media (min-width: 768px) {
-  .tt-subline { font-size: 0.9rem; margin-bottom: 1.625rem; }
-}
+
+        .tt-subline {
+          font-size: 0.85rem;
+          color: var(--soft-brown);
+          line-height: 1.5;
+          margin-bottom: 1.375rem;
+        }
+        @media (min-width: 768px) {
+          .tt-subline { font-size: 0.9rem; margin-bottom: 1.625rem; }
+        }
 
         /* FORM */
         .tt-form {
@@ -516,6 +543,28 @@ export default function SignupPage() {
           opacity: 0.5; padding: 0;
           display: flex; align-items: center;
           -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Password Strength Meter */
+        .tt-pw-strength {
+          margin-top: 0.5rem;
+        }
+        .tt-pw-strength-bar {
+          height: 4px;
+          background: rgba(120, 90, 60, 0.1);
+          border-radius: 999px;
+          overflow: hidden;
+          margin-bottom: 0.35rem;
+        }
+        .tt-pw-strength-fill {
+          height: 100%;
+          border-radius: 999px;
+          transition: width 0.3s ease, background 0.3s ease;
+        }
+        .tt-pw-strength-label {
+          font-size: 0.7rem;
+          font-weight: 600;
+          transition: color 0.3s ease;
         }
 
         /* CTA */
@@ -851,7 +900,21 @@ export default function SignupPage() {
                     onFocus={() => setShowDropdown(true)}
                     autoComplete="off"
                     className={`tt-input ${fieldErrors.college ? 'err' : ''}`}
+                    style={{ paddingRight: '2.5rem' }}
                   />
+                  <div style={{ 
+                    position: 'absolute', 
+                    right: '0.75rem', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: 'var(--soft-brown)',
+                    opacity: 0.5,
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <ChevronDown size={16} />
+                  </div>
                   {showDropdown && (
                     <div className="tt-dropdown">
                       {filteredColleges.map((c) => (
@@ -892,7 +955,7 @@ export default function SignupPage() {
                     id="su-pw" name="password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password} onChange={update}
-                    placeholder="Uppercase, lowercase, number, special"
+                    placeholder="Create a strong password"
                     autoComplete="new-password"
                     className={`tt-input ${fieldErrors.password ? 'err' : ''}`}
                     style={{ paddingRight: '2.5rem' }}
@@ -906,8 +969,23 @@ export default function SignupPage() {
                   </button>
                 </div>
                 {fieldErrors.password && <span className="tt-field-err">{fieldErrors.password}</span>}
-                {!fieldErrors.password && (
-                  <span className="tt-field-err" style={{ color: '#9c8270' }}>{PASSWORD_MESSAGE}</span>
+                
+                {/* Clean password strength meter */}
+                {form.password && (
+                  <div className="tt-pw-strength">
+                    <div className="tt-pw-strength-bar">
+                      <div 
+                        className="tt-pw-strength-fill" 
+                        style={{ 
+                          width: `${passwordStrength.score}%`,
+                          background: passwordStrength.color
+                        }}
+                      />
+                    </div>
+                    <div className="tt-pw-strength-label" style={{ color: passwordStrength.color }}>
+                      {passwordStrength.label}
+                    </div>
+                  </div>
                 )}
               </div>
 
