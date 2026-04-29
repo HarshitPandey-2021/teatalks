@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
+const ACTIVE_TOUCH_INTERVAL_MS = 2 * 60 * 1000;
 
 const protect = async (req, res, next) => {
   try {
@@ -12,7 +13,7 @@ const protect = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('role banStatus');
+    const user = await User.findById(decoded.id).select('role banStatus lastActiveAt');
     if (!user) {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -22,6 +23,11 @@ const protect = async (req, res, next) => {
 
     req.user = String(user._id);
     req.userRole = user.role;
+
+    const lastActiveMs = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
+    if (!lastActiveMs || Date.now() - lastActiveMs >= ACTIVE_TOUCH_INTERVAL_MS) {
+      User.updateOne({ _id: user._id }, { $set: { lastActiveAt: new Date() } }).catch(() => {});
+    }
 
     next(); // move to next step
   } catch (error) {
@@ -40,13 +46,18 @@ const optionalProtect = async (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('role banStatus');
+    const user = await User.findById(decoded.id).select('role banStatus lastActiveAt');
     if (!user || user.banStatus) {
       return next();
     }
 
     req.user = String(user._id);
     req.userRole = user.role;
+
+    const lastActiveMs = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
+    if (!lastActiveMs || Date.now() - lastActiveMs >= ACTIVE_TOUCH_INTERVAL_MS) {
+      User.updateOne({ _id: user._id }, { $set: { lastActiveAt: new Date() } }).catch(() => {});
+    }
 
     next();
   } catch (error) {

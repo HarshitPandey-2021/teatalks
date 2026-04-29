@@ -34,7 +34,7 @@ const DEFAULT_TRENDING_TAGS = [
   { tag: 'HostelLife', posts: 31 },
 ]
 
-const MAX_PULSE_ITEMS = 6
+const MAX_PULSE_ITEMS = 50
 const FEED_REFRESH_INTERVAL_MS = 15000
 
 function timeAgo(dateValue) {
@@ -180,7 +180,7 @@ function MobileLiveSheet({ isOpen, onClose, pulseEvents, onOpenPost, trendingTag
                   background: '#fff', borderRadius: '0.75rem',
                   border: '1px solid rgba(234,225,213,0.3)', padding: '0.5rem 0.25rem',
                 }}>
-                  <LivePulse events={pulseEvents} maxVisible={5} onOpenPost={(id) => { onClose(); onOpenPost?.(id) }} />
+                  <LivePulse events={pulseEvents} maxVisible={Math.max(10, pulseEvents.length)} onOpenPost={(id) => { onClose(); onOpenPost?.(id) }} />
                   {pulseEvents.length === 0 && (
                     <p style={{ fontSize: '0.75rem', color: '#b3a898', textAlign: 'center', padding: '1rem 0', margin: 0 }}>Warming up...</p>
                   )}
@@ -265,6 +265,8 @@ export default function FeedPage() {
   const [activeCategory, setActiveCategory] = useState('All')
   const [activeSort, setActiveSort] = useState('hot')
   const [pulseEvents, setPulseEvents] = useState([])
+  const [liveUsers, setLiveUsers] = useState([])
+  const [activeNowCount, setActiveNowCount] = useState(0)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { error: showErrorToast, warning: showWarningToast } = useToast()
@@ -318,9 +320,23 @@ useEffect(() => {
     }
   }, [showErrorToast])
 
+  const fetchLiveUsers = useCallback(async () => {
+    try {
+      const res = await api.get('/users/live', { params: { limit: MAX_PULSE_ITEMS } })
+      setLiveUsers(Array.isArray(res?.data?.users) ? res.data.users : [])
+      setActiveNowCount(Number(res?.data?.activeNowCount || 0))
+    } catch {
+      // Keep last known live data for smoother UI.
+    }
+  }, [])
+
   useEffect(() => {
     if (isAuthenticated) fetchPosts()
   }, [isAuthenticated, fetchPosts])
+
+  useEffect(() => {
+    if (isAuthenticated) fetchLiveUsers()
+  }, [isAuthenticated, fetchLiveUsers])
 
   useEffect(() => {
     if (!isAuthenticated) return undefined
@@ -328,12 +344,14 @@ useEffect(() => {
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchPosts({ silent: true })
+        fetchLiveUsers()
       }
     }, FEED_REFRESH_INTERVAL_MS)
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchPosts({ silent: true })
+        fetchLiveUsers()
       }
     }
 
@@ -345,38 +363,36 @@ useEffect(() => {
       window.removeEventListener('focus', handleVisibilityChange)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [isAuthenticated, fetchPosts])
+  }, [isAuthenticated, fetchPosts, fetchLiveUsers])
 
   const allPosts = useMemo(() => posts, [posts])
   useEffect(() => { allPostsRef.current = allPosts }, [allPosts])
 
   // ── Live Pulse engine ──
-// Live events derived from real posts
+  // Live events derived from active/recent users
   useEffect(() => {
-    const toPulse = (post, index) => ({
-      id: `${post._id}-${index}`,
-      icon: post.anonymousEmoji || '🗨️',
+    const toPulse = (person, index) => ({
+      id: `${person._id}-${index}`,
+      icon: person.anonymousEmoji || '🟢',
       text: (
         <>
-          <strong>{post.anonymousName || 'Anonymous'}</strong> posted in{' '}
-          <span style={{ color: '#b00d6a', fontWeight: 700 }}>
-            #{(post.tags && post.tags[0]) || post.category || 'General'}
-          </span>
+          <strong>{person.anonymousName || 'Anonymous'}</strong>{' '}
+          {person.isActiveNow ? 'is online now' : 'was active recently'}
         </>
       ),
-      time: timeAgo(post.createdAt),
-      type: 'post',
-      postId: post._id,
-      isUserPost: String(post.authorId) === String(user?._id),
+      time: timeAgo(person.lastSeenAt),
+      type: 'user',
+      postId: null,
+      isUserPost: String(person._id) === String(user?._id),
     })
 
-    const next = [...allPosts]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    const next = [...liveUsers]
+      .sort((a, b) => new Date(b.lastSeenAt) - new Date(a.lastSeenAt))
       .slice(0, MAX_PULSE_ITEMS)
       .map(toPulse)
 
     setPulseEvents(next)
-  }, [allPosts, user?._id])
+  }, [liveUsers, user?._id])
 
   // ── Sorting / Filtering ──
   const filteredPosts = useMemo(() => {
@@ -910,7 +926,7 @@ useEffect(() => {
 
         <FloatingLiveButton
           onClick={() => setMobileSheetOpen(true)}
-          eventCount={pulseEvents.length}
+          eventCount={activeNowCount || pulseEvents.length}
         />
         <MobileLiveSheet
           isOpen={mobileSheetOpen}

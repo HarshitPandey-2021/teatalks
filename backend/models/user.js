@@ -67,6 +67,14 @@ const userSchema = new mongoose.Schema(
       default: '1st Year',
       trim: true,
       enum: YEAR_OPTIONS
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null
+    },
+    lastActiveAt: {
+      type: Date,
+      default: null
     }
   },
   { timestamps: true}

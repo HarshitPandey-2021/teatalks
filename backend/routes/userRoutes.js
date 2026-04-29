@@ -9,6 +9,7 @@ const {
   getMyPosts,
   getMyActivity,
   getMyNotifications,
+  getLiveUsers,
   markNotificationRead,
   markAllNotificationsRead,
   forgotPassword,
@@ -29,6 +30,7 @@ router.patch('/me', protect, updateMe);
 router.get('/my-posts', protect, getMyPosts);
 router.get('/my-activity', protect, getMyActivity);
 router.get('/notifications', protect, getMyNotifications);
+router.get('/live', protect, getLiveUsers);
 router.patch('/notifications/read-all', protect, markAllNotificationsRead);
 router.patch('/notifications/:id/read', protect, markNotificationRead);
 router.post('/detect-toxicity', protect, async (req, res) => {

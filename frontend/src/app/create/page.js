@@ -20,19 +20,6 @@ const CATEGORIES = [
   { key: 'campus-news', label: 'Campus News', icon: 'newspaper', feedLabel: 'General' },
 ]
 
-const CATEGORY_TO_FEED = {
-  'academic': 'Academic',
-  'professor-review': 'Reviews',
-  'hostel-life': 'Hostel',
-  'rants': 'Rants',
-  'questions': 'General',
-  'lost-found': 'General',
-  'polls': 'General',
-  'memes': 'General',
-  'general': 'General',
-  'campus-news': 'General',
-}
-
 const DURATIONS = ['6h', '12h', '24h', '48h']
 const MAX_CHARS = POST_MAX_LENGTH
 const MAX_IMAGES = 4
@@ -227,7 +214,6 @@ export default function CreatePostPage() {
     setErr('')
     setLoading(true)
 
-    const feedCategory = CATEGORY_TO_FEED[cat] || 'General'
     try {
       let uploadPayload = {}
       if (images.length > 0 && images[0]?.file) {
@@ -245,7 +231,7 @@ export default function CreatePostPage() {
       }
 
       const res = await api.post('/posts', {
-        category: feedCategory,
+        category: cat,
         text: body.trim(),
         tags,
         poll: pollOn ? {

@@ -11,6 +11,7 @@ const {
 } = require('../services/contentModerationService');
 const { notifyAdmins, trimMessage } = require('../services/notificationService');
 const {
+  normalizePostCategory,
   validatePostCategory,
   validatePoll,
   validatePostText,
@@ -84,7 +85,8 @@ async function serializePost(postDoc, viewerUserId = null) {
 exports.createPost = async (req, res) => {
   try {
     const { category, text, tags = [], image, imagePublicId, imageMeta, poll } = req.body;
-    const categoryError = validatePostCategory(category);
+    const normalizedCategory = normalizePostCategory(category);
+    const categoryError = validatePostCategory(normalizedCategory);
     if (categoryError) {
       return res.status(400).json({ message: categoryError });
     }
@@ -121,7 +123,7 @@ exports.createPost = async (req, res) => {
       authorId: req.user,
       anonymousName: user.anonymousName,
       anonymousEmoji: user.emoji,
-      category: String(category).trim(),
+      category: normalizedCategory,
       text: String(text).trim(),
       tags: tagResult.value,
       image,
@@ -165,7 +167,7 @@ exports.listPosts = async (req, res) => {
         };
 
     if (category && String(category).trim() && String(category).trim().toLowerCase() !== 'all') {
-      query.category = String(category).trim();
+      query.category = normalizePostCategory(category);
     }
 
     if (exclude && mongoose.Types.ObjectId.isValid(exclude)) {
@@ -230,11 +232,11 @@ exports.updatePost = async (req, res) => {
     });
 
     if (req.body.category !== undefined) {
+      post.category = normalizePostCategory(post.category);
       const categoryError = validatePostCategory(post.category);
       if (categoryError) {
         return res.status(400).json({ message: categoryError });
       }
-      post.category = String(post.category).trim();
     }
 
     if (req.body.text !== undefined) {

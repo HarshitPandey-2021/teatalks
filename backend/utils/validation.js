@@ -22,7 +22,39 @@ const POLL_DURATIONS = ['6h', '12h', '24h', '48h'];
 
 const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace'];
 const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
-const POST_CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews', 'Polls'];
+const POST_CATEGORIES = [
+  'Academic',
+  'Hostel',
+  'Rants',
+  'General',
+  'Reviews',
+  'Polls',
+  'Prof Review',
+  'Hostel Life',
+  'Questions',
+  'Lost & Found',
+  'Memes & Fun',
+  'Campus News',
+];
+const POST_CATEGORY_ALIAS_MAP = Object.freeze({
+  academic: 'Academic',
+  academics: 'Academic',
+  hostel: 'Hostel',
+  'hostel-life': 'Hostel Life',
+  rants: 'Rants',
+  general: 'General',
+  questions: 'Questions',
+  reviews: 'Reviews',
+  'prof-review': 'Prof Review',
+  'professor-review': 'Prof Review',
+  polls: 'Polls',
+  memes: 'Memes & Fun',
+  'memes-fun': 'Memes & Fun',
+  'memes-&-fun': 'Memes & Fun',
+  'lost-found': 'Lost & Found',
+  'lost-&-found': 'Lost & Found',
+  'campus-news': 'Campus News',
+});
 
 function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase();
@@ -111,9 +143,19 @@ function validateTags(values = []) {
 }
 
 function validatePostCategory(value = '') {
-  const normalized = String(value).trim();
+  const normalized = normalizePostCategory(value);
   if (!normalized) return 'Category is required';
   return POST_CATEGORIES.includes(normalized) ? null : `Category must be one of: ${POST_CATEGORIES.join(', ')}`;
+}
+
+function normalizePostCategory(value = '') {
+  const raw = String(value).trim();
+  if (!raw) return '';
+  if (POST_CATEGORIES.includes(raw)) {
+    return raw;
+  }
+  const alias = raw.toLowerCase().replace(/\s+/g, '-');
+  return POST_CATEGORY_ALIAS_MAP[alias] || raw;
 }
 
 function validatePostText(value = '') {
@@ -255,6 +297,7 @@ module.exports = {
   isValidObjectId,
   isValidOtp,
   normalizeEmail,
+  normalizePostCategory,
   normalizeOtp,
   validateBranch,
   validateCampusName,

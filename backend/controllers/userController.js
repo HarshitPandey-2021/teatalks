@@ -274,6 +274,11 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    const now = new Date();
+    user.lastLoginAt = now;
+    user.lastActiveAt = now;
+    await user.save();
+
     res.json(buildAuthResponse(user));
 
   } catch (err) {
@@ -384,6 +389,48 @@ exports.getMyActivity = async (req, res) => {
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return res.json({ activity: activity.slice(0, 50) });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getLiveUsers = async (req, res) => {
+  try {
+    const requestedLimit = Math.max(parseInt(req.query?.limit, 10) || 20, 1);
+    const limit = Math.min(requestedLimit, 100);
+    const now = Date.now();
+    const activeCutoff = new Date(now - 5 * 60 * 1000);
+    const recentCutoff = new Date(now - 24 * 60 * 60 * 1000);
+
+    const users = await User.find({
+      role: 'student',
+      banStatus: false,
+      $or: [
+        { lastActiveAt: { $gte: recentCutoff } },
+        { lastLoginAt: { $gte: recentCutoff } },
+      ],
+    })
+      .select('_id anonymousName emoji lastActiveAt lastLoginAt')
+      .sort({ lastActiveAt: -1, lastLoginAt: -1 })
+      .limit(limit);
+
+    const liveUsers = users.map((u) => {
+      const lastSeenAt = u.lastActiveAt || u.lastLoginAt;
+      return {
+        _id: u._id,
+        anonymousName: u.anonymousName || 'Anonymous',
+        anonymousEmoji: u.emoji || '😶',
+        lastSeenAt,
+        isActiveNow: Boolean(lastSeenAt && new Date(lastSeenAt) >= activeCutoff),
+      };
+    });
+
+    const activeNowCount = liveUsers.filter((u) => u.isActiveNow).length;
+    return res.json({
+      activeNowCount,
+      totalRecentCount: liveUsers.length,
+      users: liveUsers,
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
