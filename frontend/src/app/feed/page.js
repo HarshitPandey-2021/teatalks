@@ -33,6 +33,7 @@ const DEFAULT_TRENDING_TAGS = [
 ]
 
 const MAX_PULSE_ITEMS = 6
+const FEED_REFRESH_INTERVAL_MS = 15000
 
 function timeAgo(dateValue) {
   if (!dateValue) return 'just now'
@@ -267,6 +268,7 @@ export default function FeedPage() {
   const { error: showErrorToast, warning: showWarningToast } = useToast()
   const router = useRouter()
   const allPostsRef = useRef([])
+  const isRefreshingPostsRef = useRef(false)
   const [posts, setPosts] = useState([])
   const [postsLoading, setPostsLoading] = useState(true)
   const [editModalPost, setEditModalPost] = useState(null)
@@ -284,17 +286,56 @@ export default function FeedPage() {
     if (!authLoading && isAuthenticated && user?.role === 'admin') router.push('/admin')
   }, [authLoading, isAuthenticated, router, user?.role])
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async ({ silent = false } = {}) => {
+    if (isRefreshingPostsRef.current) return
+    isRefreshingPostsRef.current = true
+
+    if (!silent) {
+      setPostsLoading(true)
+    }
+
     try {
       const res = await api.get('/posts')
       setPosts(res.data.posts || [])
+    } catch (error) {
+      if (!silent) {
+        showErrorToast(error.response?.data?.message || 'Failed to refresh feed')
+      }
     } finally {
-      setPostsLoading(false)
+      isRefreshingPostsRef.current = false
+      if (!silent) {
+        setPostsLoading(false)
+      }
     }
-  }, [])
+  }, [showErrorToast])
 
   useEffect(() => {
     if (isAuthenticated) fetchPosts()
+  }, [isAuthenticated, fetchPosts])
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchPosts({ silent: true })
+      }
+    }, FEED_REFRESH_INTERVAL_MS)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPosts({ silent: true })
+      }
+    }
+
+    window.addEventListener('focus', handleVisibilityChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleVisibilityChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [isAuthenticated, fetchPosts])
 
   const allPosts = useMemo(() => posts, [posts])

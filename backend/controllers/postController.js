@@ -22,6 +22,20 @@ function getPollDurationMs(duration) {
   return Number.isFinite(hours) ? hours * 60 * 60 * 1000 : 0;
 }
 
+function getPollOptionText(option) {
+  if (typeof option === 'string') {
+    return option;
+  }
+  return option?.text || '';
+}
+
+function getPollOptionVotes(option) {
+  if (typeof option === 'string') {
+    return 0;
+  }
+  return Number(option?.votes || 0);
+}
+
 function serializePoll(poll, viewerUserId = null) {
   if (!poll || !Array.isArray(poll.options) || poll.options.length < 2) {
     return null;
@@ -34,9 +48,9 @@ function serializePoll(poll, viewerUserId = null) {
     : null;
 
   return {
-    options: poll.options.map((option) => option.text),
-    votes: poll.options.map((option) => Number(option.votes || 0)),
-    totalVotes: poll.options.reduce((sum, option) => sum + Number(option.votes || 0), 0),
+    options: poll.options.map((option) => getPollOptionText(option)),
+    votes: poll.options.map((option) => getPollOptionVotes(option)),
+    totalVotes: poll.options.reduce((sum, option) => sum + getPollOptionVotes(option), 0),
     duration: poll.duration || null,
     expiresAt: poll.expiresAt || null,
     isExpired: Boolean(poll.expiresAt && new Date(poll.expiresAt) <= new Date()),
@@ -367,6 +381,21 @@ exports.votePoll = async (req, res) => {
     if (!post.poll || !Array.isArray(post.poll.options) || post.poll.options.length < 2) {
       return res.status(400).json({ message: 'This post does not have a poll' });
     }
+
+    if (!Array.isArray(post.poll.voters)) {
+      post.poll.voters = [];
+    }
+    post.poll.options = post.poll.options.map((option) => {
+      if (typeof option === 'string') {
+        return { text: option, votes: 0 };
+      }
+      return {
+        ...option.toObject?.(),
+        text: option?.text || '',
+        votes: Number(option?.votes || 0),
+      };
+    });
+
     if (optionIndex < 0 || optionIndex >= post.poll.options.length) {
       return res.status(400).json({ message: 'Invalid poll option' });
     }

@@ -10,7 +10,7 @@ export const MAX_REPORT_REASON_LENGTH = 500
 
 export const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace']
 export const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']
-export const POST_CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews']
+export const POST_CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews', 'Polls']
 
 export function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase()

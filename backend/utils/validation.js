@@ -22,7 +22,7 @@ const POLL_DURATIONS = ['6h', '12h', '24h', '48h'];
 
 const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace'];
 const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
-const POST_CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews'];
+const POST_CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews', 'Polls'];
 
 function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase();
