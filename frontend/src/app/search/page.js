@@ -2,81 +2,73 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import PostCard from '@/components/PostCard'
+import api from '@/lib/axios'
 
-const ALL_POSTS = [
-  {
-    _id: '1', anonymousEmoji: '🦊', anonymousName: 'Silent Fox',
-    category: 'Academic',
-    text: "Does anyone have Sharma sir's DBMS notes? Unit 4 specifically. Exam in 3 days 😭",
-    imageUrl: null, tags: ['DBMS', 'AcademicStress'],
-    score: 342, commentCount: 56,
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(), userVote: null,
-  },
-  {
-    _id: '2', anonymousEmoji: '🐼', anonymousName: 'Sleepy Panda',
-    category: 'Hostel',
-    text: 'The mess food today was surprisingly... edible? Like, the paneer actually felt like paneer.',
-    imageUrl: null, tags: ['MessFood', 'HostelLife'],
-    score: 1200, commentCount: 89,
-    createdAt: new Date(Date.now() - 5 * 3600000).toISOString(), userVote: null,
-  },
-  {
-    _id: '3', anonymousEmoji: '🦄', anonymousName: 'Glitter Uni',
-    category: 'Reviews',
-    text: 'The new coffee shop near the main gate is a total vibe. ☕️ Cold brew is 10/10.',
-    imageUrl: null, tags: ['CafeReview', 'CampusVibes'],
-    score: 854, commentCount: 23,
-    createdAt: new Date(Date.now() - 8 * 3600000).toISOString(), userVote: null,
-  },
-  {
-    _id: '4', anonymousEmoji: '🦉', anonymousName: 'Night Owl',
-    category: 'Rants',
-    text: "Why does the WiFi in Hostel Block C work at 3 AM but dies during classes? 📡💀",
-    imageUrl: null, tags: ['WiFi', 'HostelProblems'],
-    score: 567, commentCount: 34,
-    createdAt: new Date(Date.now() - 12 * 3600000).toISOString(), userVote: null,
-  },
-  {
-    _id: '5', anonymousEmoji: '🐸', anonymousName: 'Chilled Frog',
-    category: 'General',
-    text: 'Unpopular opinion: The campus at 6 AM is genuinely beautiful. Saw peacocks near the sports complex. 🌄',
-    imageUrl: null, tags: ['CampusLife', 'MorningVibes'],
-    score: 923, commentCount: 41,
-    createdAt: new Date(Date.now() - 18 * 3600000).toISOString(), userVote: null,
-  },
-]
-
-const TRENDING_TAGS = ['#DBMS', '#MessFood', '#WiFi', '#CampusVibes', '#HostelLife', '#Exams']
+const DEFAULT_TRENDING_TAGS = ['#DBMS', '#MessFood', '#WiFi', '#CampusVibes', '#HostelLife', '#Exams']
 
 export default function SearchPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const urlQuery = useMemo(() => (searchParams.get('q') || '').trim(), [searchParams])
 
-  const [query, setQuery] = useState('')
-  const [searched, setSearched] = useState(false)
+  const [allPosts, setAllPosts] = useState([])
+  const [query, setQuery] = useState(urlQuery)
+  const [searched, setSearched] = useState(Boolean(urlQuery))
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
   }, [authLoading, isAuthenticated, router])
 
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const res = await api.get('/posts?limit=200')
+        setAllPosts(Array.isArray(res.data?.posts) ? res.data.posts : [])
+      } catch (error) {
+        setAllPosts([])
+      }
+    }
+    if (isAuthenticated) loadPosts()
+  }, [isAuthenticated])
+
   const results = useMemo(() => {
     if (!query.trim()) return []
     const q = query.toLowerCase().trim()
-    return ALL_POSTS.filter((p) =>
+    return allPosts.filter((p) =>
       p.text.toLowerCase().includes(q) ||
-      p.tags.some((t) => t.toLowerCase().includes(q)) ||
+      (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
       p.anonymousName.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q)
     )
-  }, [query])
+  }, [query, allPosts])
+
+  const trendingTags = useMemo(() => {
+    const counts = new Map()
+    allPosts.forEach((post) => {
+      const tags = Array.isArray(post.tags) ? post.tags : []
+      tags.forEach((tag) => {
+        const key = String(tag || '').trim()
+        if (!key) return
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+    })
+    const dynamic = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([tag]) => `#${tag}`)
+    return dynamic.length ? dynamic : DEFAULT_TRENDING_TAGS
+  }, [allPosts])
 
   const handleSearch = (e) => {
     e?.preventDefault()
-    if (query.trim()) setSearched(true)
+    if (!query.trim()) return
+    setSearched(true)
+    router.replace(`/search?q=${encodeURIComponent(query.trim())}`)
   }
 
   const handleTagClick = (tag) => {
@@ -134,7 +126,7 @@ export default function SearchPage() {
           }}>search</span>
           <input
             type="text" value={query}
-            onChange={(e) => { setQuery(e.target.value); if (searched) setSearched(true) }}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search posts, tags, topics..."
             autoFocus
             style={{
@@ -179,7 +171,7 @@ export default function SearchPage() {
               color: '#b3aca3', marginBottom: '1rem',
             }}>🔥 Trending on Campus</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-              {TRENDING_TAGS.map((tag) => (
+              {trendingTags.map((tag) => (
                 <button key={tag} onClick={() => handleTagClick(tag)}
                   style={{
                     padding: '0.625rem 1.25rem',

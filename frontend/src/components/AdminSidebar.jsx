@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
+import NotificationBell from './NotificationBell'
 
 const NAV_ITEMS = [
   { key: 'overview', label: 'Overview', icon: 'dashboard', href: '/admin' },
@@ -12,10 +12,19 @@ const NAV_ITEMS = [
 
 export default function AdminSidebar({ activePage = 'overview' }) {
   const { logout } = useAuth()
-  const router = useRouter()
 
   return (
     <>
+      <div className="admin-floating-notifications" style={{
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        zIndex: 90,
+        display: 'none',
+      }}>
+        <NotificationBell />
+      </div>
+
       {/* Desktop Sidebar */}
       <aside className="admin-sidebar-desktop" style={{
         position: 'fixed', left: 0, top: 0, bottom: 0,
@@ -30,6 +39,7 @@ export default function AdminSidebar({ activePage = 'overview' }) {
             .admin-sidebar-desktop { display: flex !important; }
             .admin-main-content { margin-left: 260px !important; }
             .admin-mobile-nav { display: none !important; }
+            .admin-floating-notifications { display: block !important; }
           }
         `}</style>
 
@@ -99,15 +109,6 @@ export default function AdminSidebar({ activePage = 'overview' }) {
 
         {/* Bottom */}
         <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <Link href="/feed" style={{
-            display: 'flex', alignItems: 'center', gap: '1rem',
-            padding: '0.75rem 1.5rem', borderRadius: 9999,
-            color: '#322e28', opacity: 0.6, textDecoration: 'none',
-            fontSize: '0.875rem', fontWeight: 600, transition: 'opacity 0.2s',
-          }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 22 }}>arrow_back</span>
-            Back to Feed
-          </Link>
           <button onClick={logout} style={{
             display: 'flex', alignItems: 'center', gap: '1rem',
             padding: '0.75rem 1.5rem', borderRadius: 9999,
@@ -140,14 +141,8 @@ export default function AdminSidebar({ activePage = 'overview' }) {
             background: 'linear-gradient(135deg, #b00d6a, #904800)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }}>TeaTalks Admin</Link>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <Link href="/feed" style={{
-              padding: '0.5rem', borderRadius: '50%',
-              background: '#f8f0e5', color: '#7b766e',
-              display: 'flex', textDecoration: 'none',
-            }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>arrow_back</span>
-            </Link>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <NotificationBell panelStyle={{ top: '2.75rem', right: 0, left: 'auto' }} />
             <button onClick={logout} style={{
               padding: '0.5rem', borderRadius: '50%',
               background: '#fef2f2', color: '#b41340',

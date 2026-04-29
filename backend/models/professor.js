@@ -3,15 +3,21 @@ const mongoose = require('mongoose');
 const professorSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 120
   },
   department: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 120
   },
   subjects: [
     {
-      type: String
+      type: String,
+      trim: true,
+      maxlength: 80
     }
   ],
   averageRatings: {

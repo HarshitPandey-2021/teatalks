@@ -8,8 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import CommentCard from '@/components/CommentCard'
 import CommentForm from '@/components/CommentForm'
+import PostPoll from '@/components/PostPoll'
 import ReportModal from '@/components/ReportModal'
 import PostCard from '@/components/PostCard'
+import { useToast } from '@/context/ToastContext'
+import api from '@/lib/axios'
 
 /* ─────────────────────────────────────────────────────────────
    API PLACEHOLDERS
@@ -19,36 +22,52 @@ import PostCard from '@/components/PostCard'
 ───────────────────────────────────────────────────────────── */
 
 async function fetchPost(id) {
-  // TODO: return await fetch(`/api/posts/${id}`).then(r => r.json())
-  return MOCK_POSTS[id] || null
+  const res = await api.get(`/posts/${id}`)
+  return res.data.post
 }
 
 async function fetchComments(postId) {
-  // TODO: return await fetch(`/api/posts/${postId}/comments`).then(r => r.json())
-  return MOCK_COMMENTS[postId] || []
+  const res = await api.get(`/posts/${postId}/comments`)
+  const flat = res.data.comments || []
+  const byId = new Map(flat.map((c) => [c._id, { ...c, replies: [] }]))
+  const roots = []
+  flat.forEach((c) => {
+    const node = byId.get(c._id)
+    if (c.parentCommentId && byId.has(c.parentCommentId)) {
+      byId.get(c.parentCommentId).replies.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+  return roots
 }
 
 async function fetchRelatedPosts(postId, category) {
-  // TODO: return await fetch(`/api/posts?category=${category}&exclude=${postId}&limit=3`).then(r => r.json())
-  return Object.values(MOCK_POSTS)
-    .filter(p => p._id !== postId)
-    .sort((a, b) => (b.category === category ? 1 : 0) - (a.category === category ? 1 : 0) || b.score - a.score)
-    .slice(0, 3)
+  const res = await api.get('/posts', { params: { category, exclude: postId, limit: 3 } })
+  return res.data.posts || []
 }
 
 async function submitVote(postId, vote) {
-  // TODO: return await fetch(`/api/posts/${postId}/vote`, { method: 'POST', body: JSON.stringify({ vote }) })
+  const mappedVote = vote === 'up' ? 1 : vote === 'down' ? -1 : 0
+  if (!mappedVote) return { ok: true }
+  await api.post(`/posts/${postId}/vote`, { vote: mappedVote })
   return { ok: true }
 }
 
 async function submitComment(postId, text) {
-  // TODO: return await fetch(`/api/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify({ text }) })
-  return { ok: true }
+  const res = await api.post(`/posts/${postId}/comments`, { text }, { timeout: 15000 })
+  return res.data
 }
 
 async function submitReply(postId, parentCommentId, text) {
-  // TODO: return await fetch(`/api/posts/${postId}/comments/${parentCommentId}/replies`, { method: 'POST', body: JSON.stringify({ text }) })
-  return { ok: true }
+  const res = await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text }, { timeout: 15000 })
+  return res.data
+}
+
+async function submitCommentVote(commentId, vote) {
+  const mappedVote = vote === 'up' ? 1 : vote === 'down' ? -1 : 0
+  const res = await api.post(`/comments/${commentId}/vote`, { vote: mappedVote })
+  return res.data?.comment
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -142,9 +161,7 @@ const MOCK_COMMENTS = {
   ],
 }
 
-const TRENDING_TAGS = [
-  'DBMS', 'LibraryAC', 'MessHeist', 'Convocation', 'WiFiWoes', 'HostelLife',
-]
+const TRENDING_TAGS = []
 
 /* ─────────────────────────────────────────────────────────────
    CONSTANTS
@@ -191,27 +208,23 @@ function insertReplyRecursive(comments, parentId, newReply) {
    MINI LIVE PULSE
 ───────────────────────────────────────────────────────────── */
 
-const PULSE_TEMPLATES = [
-  () => ({ icon: '🟢', text: `${Math.floor(Math.random() * 5) + 2} people viewing this` }),
-  () => ({ icon: '💬', text: `${Math.floor(Math.random() * 4) + 1} new replies recently` }),
-  () => ({ icon: '📈', text: `Gained +${Math.floor(Math.random() * 15) + 5} votes today` }),
-  () => ({ icon: '✨', text: `${Math.floor(Math.random() * 3) + 1} people typing a reply…` }),
-]
-
-function MiniPulse() {
+function MiniPulse({ postScore = 0, commentCount = 0 }) {
+  const templates = useMemo(() => [
+    { icon: '🟢', text: `${commentCount} comments in this discussion` },
+    { icon: '💬', text: `${postScore >= 0 ? '+' : ''}${postScore} score so far` },
+    { icon: '📈', text: 'Live data from current post activity' },
+  ], [commentCount, postScore])
   const [idx, setIdx] = useState(0)
-  const [msg, setMsg] = useState(PULSE_TEMPLATES[0]())
 
   useEffect(() => {
     const t = setInterval(() => {
       setIdx(prev => {
-        const next = (prev + 1) % PULSE_TEMPLATES.length
-        setMsg(PULSE_TEMPLATES[next]())
+        const next = (prev + 1) % templates.length
         return next
       })
     }, 4500)
     return () => clearInterval(t)
-  }, [])
+  }, [templates])
 
   return (
     <div style={{ padding: '0.5rem 1.25rem 0.75rem', borderTop: '1px solid rgba(234,225,213,0.2)' }}>
@@ -227,8 +240,8 @@ function MiniPulse() {
             fontSize: '0.75rem', color: '#b3a898', fontWeight: 500,
           }}
         >
-          <span style={{ fontSize: '0.75rem', lineHeight: 1 }}>{msg.icon}</span>
-          <span>{msg.text}</span>
+          <span style={{ fontSize: '0.75rem', lineHeight: 1 }}>{templates[idx].icon}</span>
+          <span>{templates[idx].text}</span>
         </motion.div>
       </AnimatePresence>
     </div>
@@ -239,31 +252,41 @@ function MiniPulse() {
    SINGLE COMMENT ROW (inline, no external CommentCard dep issue)
 ───────────────────────────────────────────────────────────── */
 
-function CommentRow({ comment, postAuthorName, user, onReply, depth = 0 }) {
+function CommentRow({ comment, postAuthorName, user, onReply, postId, depth = 0 }) {
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [vote, setVote] = useState(comment.userVote)
-  const [score, setScore] = useState(comment.score)
+  const [vote, setVote] = useState(comment.userVote ?? null)
+  const [score, setScore] = useState(Number(comment.score || 0))
   const [showAllReplies, setShowAllReplies] = useState(false)
 
   const replies = comment.replies || []
   const visibleReplies = showAllReplies ? replies : replies.slice(0, REPLIES_PREVIEW)
   const hiddenCount = replies.length - REPLIES_PREVIEW
 
-  const doVote = useCallback((dir) => {
+  const doVote = useCallback(async (dir) => {
     const prev = vote
     let nv, d = 0
     if (prev === dir) { nv = null; d = dir === 'up' ? -1 : 1 }
     else { nv = dir; d = prev === null ? (dir === 'up' ? 1 : -1) : (dir === 'up' ? 2 : -2) }
     setVote(nv); setScore(s => s + d)
-  }, [vote])
+    try {
+      const updated = await submitCommentVote(comment._id, nv)
+      if (updated) {
+        setVote(updated.userVote ?? null)
+        setScore(Number(updated.score || 0))
+      }
+    } catch {
+      setVote(prev)
+      setScore(s => s - d)
+    }
+  }, [vote, comment._id])
 
   const handleReplySubmit = async (e) => {
     e.preventDefault()
     if (!replyText.trim()) return
     setSubmitting(true)
-    await submitReply(null, comment._id, replyText.trim())
+    await submitReply(postId, comment._id, replyText.trim())
     onReply(comment._id, replyText.trim())
     setReplyText('')
     setShowReplyForm(false)
@@ -459,6 +482,7 @@ function CommentRow({ comment, postAuthorName, user, onReply, depth = 0 }) {
                   postAuthorName={postAuthorName}
                   user={user}
                   onReply={onReply}
+                  postId={postId}
                   depth={depth + 1}
                 />
               </motion.div>
@@ -523,11 +547,16 @@ function CommentRow({ comment, postAuthorName, user, onReply, depth = 0 }) {
    RELATED POSTS SECTION
 ───────────────────────────────────────────────────────────── */
 
-function RelatedPosts({ currentPostId, currentCategory }) {
+function RelatedPosts({ currentPostId, currentCategory, currentTags = [] }) {
   const [posts, setPosts] = useState([])
+  const resolvedTags = currentTags.length
+    ? currentTags
+    : Array.from(new Set(posts.flatMap((p) => p.tags || []))).slice(0, 6)
 
   useEffect(() => {
-    fetchRelatedPosts(currentPostId, currentCategory).then(setPosts)
+    fetchRelatedPosts(currentPostId, currentCategory).then((items) => {
+      setPosts((items || []).filter((item) => String(item?._id) !== String(currentPostId)))
+    })
   }, [currentPostId, currentCategory])
 
   if (!posts.length) return null
@@ -581,7 +610,7 @@ function RelatedPosts({ currentPostId, currentCategory }) {
           overflowX: 'auto', paddingBottom: 2,
           scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
         }}>
-          {TRENDING_TAGS.map(tag => (
+          {resolvedTags.map(tag => (
             <Link key={tag} href={`/search?q=${tag}`} style={{
               padding: '0.3rem 0.75rem', borderRadius: 9999,
               background: 'rgba(242,234,222,0.6)',
@@ -609,6 +638,7 @@ export default function PostDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { warning: showWarningToast, error: showErrorToast } = useToast()
   const commentFormRef = useRef(null)
 
   const [post, setPost] = useState(null)
@@ -619,18 +649,29 @@ export default function PostDetailPage() {
   const [postScore, setPostScore] = useState(0)
   const [copied, setCopied] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [reportError, setReportError] = useState('')
 
   /* Load post + comments */
   useEffect(() => {
     if (!params.id) return
-    setPageLoading(true)
-    Promise.all([fetchPost(params.id), fetchComments(params.id)]).then(([p, c]) => {
-      setPost(p)
-      setPostScore(p?.score || 0)
-      setCommentCount(p?.commentCount || 0)
-      setComments(c)
-      setPageLoading(false)
-    })
+    Promise.all([fetchPost(params.id), fetchComments(params.id)])
+      .then(([p, c]) => {
+        setPost(p)
+        setPostVote(p?.userVote || null)
+        setPostScore(p?.score || 0)
+        setCommentCount(p?.commentCount || 0)
+        setComments(c)
+      })
+      .catch(() => {
+        setPost(null)
+        setPostVote(null)
+        setPostScore(0)
+        setCommentCount(0)
+        setComments([])
+      })
+      .finally(() => {
+        setPageLoading(false)
+      })
   }, [params.id])
 
   /* Auth guard */
@@ -649,31 +690,44 @@ export default function PostDetailPage() {
   }, [postVote, params.id])
 
   const handleNewComment = useCallback(async (text) => {
-    await submitComment(params.id, text)
-    const newComment = {
-      _id: 'c_' + Date.now(),
-      anonymousEmoji: user.anonymousEmoji,
-      anonymousName: user.anonymousName,
-      text, score: 0,
-      createdAt: new Date().toISOString(),
-      userVote: null, replies: [],
-    }
-    setComments(prev => [newComment, ...prev])
-    setCommentCount(c => c + 1)
-  }, [user, params.id])
+    try {
+      const result = await submitComment(params.id, text)
+      const createdComment = result?.comment
+      const isVisible = createdComment?.visibility === 'visible' || createdComment?.visibility === undefined || createdComment?.visibility === null
 
-  const handleReply = useCallback((parentId, text) => {
-    const newReply = {
-      _id: 'r_' + Date.now(),
-      anonymousEmoji: user.anonymousEmoji,
-      anonymousName: user.anonymousName,
-      text, score: 0,
-      createdAt: new Date().toISOString(),
-      userVote: null, replies: [],
+      if (createdComment && isVisible) {
+        setComments(prev => [{ ...createdComment, replies: createdComment.replies || [] }, ...prev])
+        setCommentCount(c => c + 1)
+        return
+      }
+
+      if (result?.toxicity?.score >= 0.6 || createdComment?.moderationStatus === 'toxic') {
+        showWarningToast('Your comment was hidden for review because it was detected as toxic.', { title: 'Comment Hidden' })
+      }
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || error?.message || 'Failed to post comment')
     }
-    setComments(prev => insertReplyRecursive(prev, parentId, newReply))
-    setCommentCount(c => c + 1)
-  }, [user])
+  }, [params.id, showErrorToast, showWarningToast])
+
+  const handleReply = useCallback(async (parentId, text) => {
+    try {
+      const result = await submitReply(params.id, parentId, text)
+      const newReply = result?.comment
+      const isVisible = newReply?.visibility === 'visible' || newReply?.visibility === undefined || newReply?.visibility === null
+
+      if (newReply && isVisible) {
+        setComments(prev => insertReplyRecursive(prev, parentId, { ...newReply, replies: newReply.replies || [] }))
+        setCommentCount(c => c + 1)
+        return
+      }
+
+      if (result?.toxicity?.score >= 0.6 || newReply?.moderationStatus === 'toxic') {
+        showWarningToast('Your reply was hidden for review because it was detected as toxic.', { title: 'Reply Hidden' })
+      }
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || error?.message || 'Failed to post reply')
+    }
+  }, [params.id, showErrorToast, showWarningToast])
 
   const handleShare = useCallback(async () => {
     try { await navigator.clipboard.writeText(window.location.href) }
@@ -852,6 +906,16 @@ export default function PostDetailPage() {
                   ))}
                 </div>
               )}
+
+              {post.poll?.options?.length >= 2 ? (
+                <PostPoll
+                  poll={post.poll}
+                  postId={post._id}
+                  onPollUpdate={(nextPoll) => {
+                    setPost((prev) => (prev ? { ...prev, poll: nextPoll } : prev))
+                  }}
+                />
+              ) : null}
             </div>
 
             {/* Image */}
@@ -967,7 +1031,7 @@ export default function PostDetailPage() {
             </div>
 
             {/* Live pulse */}
-            <MiniPulse />
+            <MiniPulse postScore={postScore} commentCount={commentCount} />
           </motion.article>
 
           {/* ════════════ DISCUSSION ════════════ */}
@@ -1017,6 +1081,7 @@ export default function PostDetailPage() {
                         postAuthorName={post.anonymousName}
                         user={user}
                         onReply={handleReply}
+                        postId={params.id}
                         depth={0}
                       />
                     </motion.div>
@@ -1044,16 +1109,36 @@ export default function PostDetailPage() {
           </motion.section>
 
           {/* ════════════ RELATED ════════════ */}
-          <RelatedPosts currentPostId={post._id} currentCategory={post.category} />
+          <RelatedPosts currentPostId={post._id} currentCategory={post.category} currentTags={post.tags || []} />
         </main>
 
         {/* Report Modal */}
         <ReportModal
           isOpen={reportOpen}
           onClose={() => setReportOpen(false)}
-          onSubmit={async (data) => console.log('Report:', post._id, data)}
+          onSubmit={async (data) => {
+            setReportError('')
+            try {
+              await api.post('/reports', {
+                targetId: post._id,
+                targetType: 'Post',
+                reason: data.description
+                  ? `${data.reason}: ${data.description}`.slice(0, 500)
+                  : data.reason,
+              })
+            } catch (error) {
+              const message = error?.response?.data?.message || 'Failed to submit report'
+              setReportError(message)
+              throw error
+            }
+          }}
           targetType="post"
         />
+        {reportError ? (
+          <div style={{ maxWidth: '46rem', margin: '0.5rem auto 0', padding: '0 1rem', color: '#b91c1c', fontSize: '0.8rem', fontWeight: 600 }}>
+            {reportError}
+          </div>
+        ) : null}
 
         {/* Copied toast */}
         <AnimatePresence>

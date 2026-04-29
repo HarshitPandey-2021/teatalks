@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { COMMENT_MAX_LENGTH } from '@/lib/validation'
 
 export default function CommentForm({
   onSubmit,
@@ -46,6 +47,7 @@ export default function CommentForm({
           onChange={(e) => setText(e.target.value)}
           onFocus={() => setExpanded(true)}
           autoFocus={autoFocus}
+          maxLength={COMMENT_MAX_LENGTH}
           placeholder={placeholder || 'Add a comment... spill some tea ☕'}
           style={{
             width: '100%',

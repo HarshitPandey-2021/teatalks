@@ -15,9 +15,15 @@ const commentSchema = new mongoose.Schema({
     type: String,
     default: 'Anonymous'
   },
+  anonymousEmoji: {
+    type: String,
+    default: '🙂'
+  },
   text: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 1000
   },
   parentCommentId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -31,6 +37,50 @@ const commentSchema = new mongoose.Schema({
   reports: {
     type: Number,
     default: 0
+  },
+  moderationScore: {
+    type: Number,
+    default: 0
+  },
+  moderationStatus: {
+    type: String,
+    enum: ['normal', 'toxic', 'reported'],
+    default: 'normal'
+  },
+  visibility: {
+    type: String,
+    enum: ['visible', 'hidden'],
+    default: 'visible'
+  },
+  adminReviewStatus: {
+    type: String,
+    enum: ['none', 'pending', 'reviewed'],
+    default: 'none'
+  },
+  moderationReasons: {
+    type: [String],
+    default: []
+  },
+  moderationSuggestions: {
+    type: [String],
+    default: []
+  },
+  hiddenReason: {
+    type: String,
+    default: ''
+  },
+  hiddenAt: {
+    type: Date,
+    default: null
+  },
+  moderatedAt: {
+    type: Date,
+    default: null
+  },
+  moderatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   }
 }, { timestamps: true });
 

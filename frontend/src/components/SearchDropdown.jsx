@@ -5,17 +5,7 @@ import { useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const ALL_POSTS = [
-  { _id: '1', anonymousEmoji: '🦊', anonymousName: 'Silent Fox', category: 'Academic', text: "Does anyone have Sharma sir's DBMS notes? Unit 4 specifically. Exam in 3 days 😭", tags: ['DBMS', 'AcademicStress'], score: 342, commentCount: 56 },
-  { _id: '2', anonymousEmoji: '🐼', anonymousName: 'Sleepy Panda', category: 'Hostel', text: 'The mess food today was surprisingly... edible? Like, the paneer actually felt like paneer.', tags: ['MessFood', 'HostelLife'], score: 1200, commentCount: 89 },
-  { _id: '3', anonymousEmoji: '🦄', anonymousName: 'Glitter Uni', category: 'Reviews', text: 'The new coffee shop near the main gate is a total vibe. ☕️ Cold brew is 10/10.', tags: ['CafeReview', 'CampusVibes'], score: 854, commentCount: 23 },
-  { _id: '4', anonymousEmoji: '🦉', anonymousName: 'Night Owl', category: 'Rants', text: "Why does the WiFi in Hostel Block C work at 3 AM but dies during classes? 📡💀", tags: ['WiFi', 'HostelProblems'], score: 567, commentCount: 34 },
-  { _id: '5', anonymousEmoji: '🐸', anonymousName: 'Chilled Frog', category: 'General', text: 'Unpopular opinion: The campus at 6 AM is genuinely beautiful. Saw peacocks near the sports complex. 🌄', tags: ['CampusLife', 'MorningVibes'], score: 923, commentCount: 41 },
-  { _id: '6', anonymousEmoji: '🐝', anonymousName: 'Busy Bee', category: 'Academic', text: 'The placement cell just dropped intern opportunities for pre-final years. Check your email ASAP.', tags: ['Placements', 'Internships'], score: 1456, commentCount: 112 },
-  { _id: '7', anonymousEmoji: '🐉', anonymousName: 'Dragon Anon', category: 'Rants', text: "Someone in my wing plays guitar at 2 AM every single night. Bro you're not John Mayer 💀🎸", tags: ['HostelLife', 'Rants'], score: 789, commentCount: 67 },
-]
-
-const TRENDING_TAGS = ['DBMS', 'MessFood', 'WiFi', 'CampusVibes', 'HostelLife', 'Exams', 'Placements', 'HostelProblems']
+const DEFAULT_TRENDING_TAGS = ['DBMS', 'MessFood', 'WiFi', 'CampusVibes', 'HostelLife', 'Exams', 'Placements', 'HostelProblems']
 
 const CAT_STYLES = {
   Academic: { bg: 'rgba(176,13,106,0.06)', color: '#b00d6a' },
@@ -30,25 +20,25 @@ function fmt(n) {
   return String(n)
 }
 
-export default function SearchDropdown({ query, onTagClick, onClose }) {
+export default function SearchDropdown({ query, posts = [], trendingTags = DEFAULT_TRENDING_TAGS, onTagClick, onClose }) {
   const router = useRouter()
 
   const results = useMemo(() => {
     if (!query.trim()) return []
     const q = query.toLowerCase().trim()
-    return ALL_POSTS.filter((p) =>
+    return posts.filter((p) =>
       p.text.toLowerCase().includes(q) ||
-      p.tags.some((t) => t.toLowerCase().includes(q)) ||
+      (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
       p.anonymousName.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q)
     ).slice(0, 6)
-  }, [query])
+  }, [query, posts])
 
   const matchingTags = useMemo(() => {
     if (!query.trim()) return []
     const q = query.toLowerCase().trim()
-    return TRENDING_TAGS.filter(tag => tag.toLowerCase().includes(q)).slice(0, 5)
-  }, [query])
+    return trendingTags.filter(tag => tag.toLowerCase().includes(q)).slice(0, 5)
+  }, [query, trendingTags])
 
   const handleResultClick = useCallback((postId) => {
     router.push(`/posts/${postId}`)
@@ -104,7 +94,7 @@ export default function SearchDropdown({ query, onTagClick, onClose }) {
               Trending on campus
             </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-              {TRENDING_TAGS.map((tag, i) => (
+              {trendingTags.map((tag, i) => (
                 <motion.button
                   key={tag}
                   onClick={() => onTagClick(tag)}
@@ -286,7 +276,7 @@ export default function SearchDropdown({ query, onTagClick, onClose }) {
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontWeight: 700, fontSize: '0.875rem', color: '#7b766e',
                   marginBottom: '0.125rem',
-                }}>No results for "{query}"</p>
+                }}>No results for &ldquo;{query}&rdquo;</p>
                 <p style={{ fontSize: '0.75rem', color: '#b3aca3' }}>
                   Try different keywords or tags
                 </p>
@@ -320,7 +310,7 @@ export default function SearchDropdown({ query, onTagClick, onClose }) {
         <span style={{
           fontSize: '0.5625rem', fontWeight: 600, color: '#c8c1b8',
         }}>
-          {hasQuery ? `${results.length} found` : `${TRENDING_TAGS.length} trending`}
+          {hasQuery ? `${results.length} found` : `${trendingTags.length} trending`}
         </span>
       </div>
     </motion.div>
