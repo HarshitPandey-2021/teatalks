@@ -90,7 +90,11 @@ exports.updateProfessor = async (req, res) => {
       updates.subjects = subjectResult.value;
     }
 
-    const professor = await Professor.findByIdAndUpdate(req.params.id, updates, { new: true });
+    const professor = await Professor.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { returnDocument: 'after' }
+    );
     if (!professor) return res.status(404).json({ message: 'Professor not found' });
     return res.json({ professor });
   } catch (error) {

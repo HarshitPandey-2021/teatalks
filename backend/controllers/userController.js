@@ -320,7 +320,11 @@ exports.updateMe = async (req, res) => {
       return res.status(400).json({ message: 'No profile fields provided' });
     }
 
-    const user = await User.findByIdAndUpdate(req.user, { $set: updates }, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(
+      req.user,
+      { $set: updates },
+      { returnDocument: 'after' }
+    ).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -413,7 +417,7 @@ exports.markNotificationRead = async (req, res) => {
       {
         $set: { readAt: new Date() },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!notification) {

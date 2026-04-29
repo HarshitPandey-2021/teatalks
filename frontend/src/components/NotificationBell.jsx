@@ -30,7 +30,8 @@ export default function NotificationBell({ panelStyle, dropdownAlign = 'right' }
 
     try {
       const res = await api.get('/users/notifications', { params: { limit: 12 } })
-      setNotifications(Array.isArray(res.data?.notifications) ? res.data.notifications : [])
+      const allNotifications = Array.isArray(res.data?.notifications) ? res.data.notifications : []
+      setNotifications(allNotifications.filter((item) => !item?.readAt))
       setUnreadCount(Number(res.data?.unreadCount || 0))
     } catch (error) {
       setNotifications([])
@@ -71,11 +72,7 @@ export default function NotificationBell({ panelStyle, dropdownAlign = 'right' }
       if (!notification.readAt) {
         const res = await api.patch(`/users/notifications/${notification._id}/read`)
         setUnreadCount(Number(res.data?.unreadCount || 0))
-        setNotifications((prev) => prev.map((item) => (
-          item._id === notification._id
-            ? { ...item, readAt: res.data?.notification?.readAt || new Date().toISOString() }
-            : item
-        )))
+        setNotifications((prev) => prev.filter((item) => item._id !== notification._id))
       }
     } catch (error) {
       // Ignore transient mark-read failures and still navigate.

@@ -47,7 +47,7 @@ exports.createReport = async (req, res) => {
     const updatedTarget = await Model.findByIdAndUpdate(
       targetId,
       { $inc: { reports: 1 } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     let autoHidden = false;
