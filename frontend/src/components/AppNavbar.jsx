@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import SearchDropdown from './SearchDropdown'
+import NotificationBell from './NotificationBell'
 import api from '@/lib/axios'
 
 const DEFAULT_TRENDING_TAGS = ['DBMS', 'MessFood', 'WiFi', 'CampusVibes', 'HostelLife', 'Exams', 'Placements', 'HostelProblems']
@@ -404,14 +405,7 @@ export default function AppNavbar() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const notificationsRef = useRef(null)
-  const notifications = [
-    { id: 'n1', title: 'Post update', text: 'One of your threads got new replies', href: '/profile', time: '2m' },
-    { id: 'n2', title: 'Moderation', text: 'Report review completed', href: '/admin/flagged', time: '10m' },
-    { id: 'n3', title: 'Community', text: 'Trending topic: #HostelLife', href: '/feed', time: '25m' },
-  ]
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024)
@@ -438,17 +432,6 @@ export default function AppNavbar() {
 
     return dynamic.length > 0 ? dynamic : DEFAULT_TRENDING_TAGS
   }, [posts])
-
-  useEffect(() => {
-    if (!showNotifications) return
-    const onClickOutside = (e) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(e.target)) {
-        setShowNotifications(false)
-      }
-    }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [showNotifications])
 
   useEffect(() => {
     const fetchNavData = async () => {
@@ -643,60 +626,7 @@ export default function AppNavbar() {
 
           {/* ── RIGHT: Actions ── */}
           <div className="nav-right">
-            <button className="nav-icon-btn" aria-label="Notifications" onClick={() => setShowNotifications((v) => !v)}>
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>notifications</span>
-              <span className="nav-notif-dot" />
-            </button>
-            <AnimatePresence>
-              {showNotifications && (
-                <motion.div
-                  ref={notificationsRef}
-                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                  style={{
-                    position: 'absolute',
-                    top: '3.25rem',
-                    right: '4.5rem',
-                    width: 320,
-                    background: '#fff',
-                    border: '1px solid rgba(234,225,213,0.35)',
-                    borderRadius: 12,
-                    boxShadow: '0 12px 30px rgba(50,46,40,0.12)',
-                    zIndex: 120,
-                    padding: '0.5rem 0.5rem 0.25rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.35rem 0.5rem 0.5rem' }}>
-                    <span style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: '0.8rem', color: '#322e28' }}>Notifications</span>
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#b00d6a', background: 'rgba(176,13,106,0.08)', padding: '2px 8px', borderRadius: 999 }}>{notifications.length} new</span>
-                  </div>
-                  {notifications.map((item) => (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      onClick={() => setShowNotifications(false)}
-                      style={{
-                        display: 'block',
-                        padding: '0.6rem 0.55rem',
-                        textDecoration: 'none',
-                        color: '#322e28',
-                        borderRadius: 8,
-                        marginBottom: '0.2rem',
-                        border: '1px solid rgba(234,225,213,0.2)',
-                        background: '#fff',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.78rem' }}>{item.title}</span>
-                        <span style={{ fontSize: '0.62rem', color: '#9b958c', fontWeight: 600 }}>{item.time}</span>
-                      </div>
-                      <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: '#6b665e', lineHeight: 1.35 }}>{item.text}</p>
-                    </Link>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <NotificationBell />
 
             <div className="nav-divider" />
 

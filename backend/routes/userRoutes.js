@@ -8,6 +8,9 @@ const {
   updateMe,
   getMyPosts,
   getMyActivity,
+  getMyNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
   forgotPassword,
   verifyForgotPasswordOtp,
   resetPasswordWithOtp,
@@ -25,6 +28,9 @@ router.get('/me', protect, getMe);
 router.patch('/me', protect, updateMe);
 router.get('/my-posts', protect, getMyPosts);
 router.get('/my-activity', protect, getMyActivity);
+router.get('/notifications', protect, getMyNotifications);
+router.patch('/notifications/read-all', protect, markAllNotificationsRead);
+router.patch('/notifications/:id/read', protect, markNotificationRead);
 router.post('/detect-toxicity', protect, async (req, res) => {
   try {
     const text = typeof req.body?.text === 'string' ? req.body.text : '';

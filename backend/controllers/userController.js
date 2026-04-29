@@ -7,6 +7,7 @@ const PasswordResetRequest = require('../models/passwordResetRequest');
 const PendingRegistration = require('../models/pendingRegistration');
 const { sendPasswordResetOtp, sendRegistrationOtp } = require('../services/mailService');
 const Comment = require('../models/comment');
+const Notification = require('../models/notification');
 const {
   OTP_LENGTH,
   normalizeEmail,
@@ -379,6 +380,65 @@ exports.getMyActivity = async (req, res) => {
     ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return res.json({ activity: activity.slice(0, 50) });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getMyNotifications = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 20, 1), 100);
+    const notifications = await Notification.find({ recipientId: req.user })
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    const unreadCount = await Notification.countDocuments({
+      recipientId: req.user,
+      readAt: null,
+    });
+
+    return res.json({ notifications, unreadCount });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.markNotificationRead = async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        recipientId: req.user,
+      },
+      {
+        $set: { readAt: new Date() },
+      },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    const unreadCount = await Notification.countDocuments({
+      recipientId: req.user,
+      readAt: null,
+    });
+
+    return res.json({ notification, unreadCount });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.markAllNotificationsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { recipientId: req.user, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+
+    return res.json({ unreadCount: 0 });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

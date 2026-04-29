@@ -553,7 +553,9 @@ function RelatedPosts({ currentPostId, currentCategory, currentTags = [] }) {
     : Array.from(new Set(posts.flatMap((p) => p.tags || []))).slice(0, 6)
 
   useEffect(() => {
-    fetchRelatedPosts(currentPostId, currentCategory).then(setPosts)
+    fetchRelatedPosts(currentPostId, currentCategory).then((items) => {
+      setPosts((items || []).filter((item) => String(item?._id) !== String(currentPostId)))
+    })
   }, [currentPostId, currentCategory])
 
   if (!posts.length) return null
@@ -651,13 +653,22 @@ export default function PostDetailPage() {
   /* Load post + comments */
   useEffect(() => {
     if (!params.id) return
-    Promise.all([fetchPost(params.id), fetchComments(params.id)]).then(([p, c]) => {
-      setPost(p)
-      setPostScore(p?.score || 0)
-      setCommentCount(p?.commentCount || 0)
-      setComments(c)
-      setPageLoading(false)
-    })
+    Promise.all([fetchPost(params.id), fetchComments(params.id)])
+      .then(([p, c]) => {
+        setPost(p)
+        setPostScore(p?.score || 0)
+        setCommentCount(p?.commentCount || 0)
+        setComments(c)
+      })
+      .catch(() => {
+        setPost(null)
+        setPostScore(0)
+        setCommentCount(0)
+        setComments([])
+      })
+      .finally(() => {
+        setPageLoading(false)
+      })
   }, [params.id])
 
   /* Auth guard */

@@ -9,6 +9,7 @@ const {
   buildToxicityModeration,
   buildVoteModerationFields,
 } = require('../services/contentModerationService');
+const { notifyAdmins, trimMessage } = require('../services/notificationService');
 const {
   validatePostCategory,
   validatePostText,
@@ -73,6 +74,20 @@ exports.createPost = async (req, res) => {
       ...moderationFields,
     });
 
+    if (moderationFields?.adminReviewStatus === 'pending') {
+      await notifyAdmins({
+        type: 'admin_toxic_post',
+        title: 'Toxic post needs review',
+        message: trimMessage(text || 'A post was flagged by safety checks.', 120),
+        href: '/admin/flagged',
+        metadata: {
+          targetType: 'Post',
+          targetId: post._id,
+          moderationStatus: post.moderationStatus,
+        },
+      });
+    }
+
     return res.status(201).json({ post: await serializePost(post), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -81,6 +96,7 @@ exports.createPost = async (req, res) => {
 
 exports.listPosts = async (req, res) => {
   try {
+    const { category, exclude, limit } = req.query || {};
     const query = req.userRole === 'admin'
       ? {}
       : {
@@ -90,7 +106,22 @@ exports.listPosts = async (req, res) => {
             { visibility: null },
           ],
         };
-    const posts = await Post.find(query).sort({ createdAt: -1 });
+
+    if (category && String(category).trim() && String(category).trim().toLowerCase() !== 'all') {
+      query.category = String(category).trim();
+    }
+
+    if (exclude && mongoose.Types.ObjectId.isValid(exclude)) {
+      query._id = { $ne: exclude };
+    }
+
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 0, 0), 100);
+    const postsQuery = Post.find(query).sort({ createdAt: -1 });
+    if (parsedLimit > 0) {
+      postsQuery.limit(parsedLimit);
+    }
+
+    const posts = await postsQuery;
     const enrichedPosts = await Promise.all(
       posts.map(p => serializePost(p, req.user).catch(err => {
         console.error("serializePost error:", err);
@@ -113,7 +144,8 @@ exports.getPostById = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
     const isVisibleToUsers = post.visibility === 'visible' || post.visibility === undefined || post.visibility === null;
-    if (!isVisibleToUsers && req.userRole !== 'admin') {
+    const isOwner = req.user && String(post.authorId) === String(req.user);
+    if (!isVisibleToUsers && req.userRole !== 'admin' && !isOwner) {
       return res.status(404).json({ message: 'Post not found' });
     }
     return res.json({ post: await serializePost(post, req.user) });
@@ -168,6 +200,19 @@ exports.updatePost = async (req, res) => {
       const { toxicity, moderationFields } = await buildToxicityModeration(post.text || '');
       Object.assign(post, moderationFields);
       await post.save();
+      if (moderationFields?.adminReviewStatus === 'pending') {
+        await notifyAdmins({
+          type: 'admin_toxic_post',
+          title: 'Edited post needs review',
+          message: trimMessage(post.text || 'A post was flagged by safety checks.', 120),
+          href: '/admin/flagged',
+          metadata: {
+            targetType: 'Post',
+            targetId: post._id,
+            moderationStatus: post.moderationStatus,
+          },
+        });
+      }
       return res.json({ post: await serializePost(post), toxicity });
     }
 

@@ -281,7 +281,8 @@ export default function FeedPage() {
   // Auth guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
-  }, [authLoading, isAuthenticated, router])
+    if (!authLoading && isAuthenticated && user?.role === 'admin') router.push('/admin')
+  }, [authLoading, isAuthenticated, router, user?.role])
 
   const fetchPosts = useCallback(async () => {
     try {

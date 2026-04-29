@@ -2,6 +2,7 @@ const Report = require('../models/reports');
 const Post = require('../models/posts');
 const Comment = require('../models/comment');
 const { buildReportModerationFields, AUTO_HIDE_REPORT_THRESHOLD } = require('../services/contentModerationService');
+const { notifyAdmins, trimMessage } = require('../services/notificationService');
 const { isValidObjectId, validateReportReason } = require('../utils/validation');
 
 exports.createReport = async (req, res) => {
@@ -67,6 +68,18 @@ exports.createReport = async (req, res) => {
         autoHidden = true;
       }
     }
+
+    await notifyAdmins({
+      type: 'admin_report_created',
+      title: 'New report received',
+      message: `${targetType} reported: ${trimMessage(reason, 120)}`,
+      href: '/admin/flagged',
+      metadata: {
+        reportId: report._id,
+        targetId,
+        targetType,
+      },
+    });
 
     return res.status(201).json({ report, autoHidden });
   } catch (error) {

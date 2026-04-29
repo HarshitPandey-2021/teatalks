@@ -125,8 +125,8 @@ export default function AdminOverviewPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              {(overview?.recentReports || []).map((report) => (
-                <div key={report.id} style={{ background: '#ffffff', borderRadius: '1rem', padding: '1.25rem', display: 'flex', gap: '1rem', boxShadow: '0 2px 12px rgba(50,46,40,0.04)' }}>
+              {(overview?.recentReports || []).map((report, index) => (
+                <div key={report.id || `${report.title || 'report'}-${report.time || index}-${index}`} style={{ background: '#ffffff', borderRadius: '1rem', padding: '1.25rem', display: 'flex', gap: '1rem', boxShadow: '0 2px 12px rgba(50,46,40,0.04)' }}>
                   <div style={{ width: 48, height: 48, borderRadius: '50%', background: report.severity === 'high' ? 'rgba(180,19,64,0.1)' : 'rgba(144,72,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <span className="material-symbols-outlined" style={{ color: report.severity === 'high' ? '#b41340' : '#904800', fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>{report.icon || 'gavel'}</span>
                   </div>
@@ -136,7 +136,7 @@ export default function AdminOverviewPage() {
                       <span style={{ fontSize: '0.6875rem', color: '#7b766e', fontWeight: 500, whiteSpace: 'nowrap', marginLeft: '0.5rem' }}>{timeAgo(report.time)}</span>
                     </div>
                     <p style={{ fontSize: '0.8125rem', color: '#5f5b53', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-                      Reported by <span style={{ color: '#904800', fontWeight: 600 }}>{report.reporter}</span>: &ldquo;{report.reason}&rdquo;
+                      {report.label || 'Reported by'} <span style={{ color: '#904800', fontWeight: 600 }}>{report.actor || report.reporter}</span>: &ldquo;{report.reason}&rdquo;
                     </p>
                     <Link href="/admin/flagged" style={{ padding: '0.375rem 1rem', borderRadius: 9999, background: '#b00d6a', color: '#ffffff', fontSize: '0.75rem', fontWeight: 700, textDecoration: 'none' }}>Review</Link>
                   </div>
