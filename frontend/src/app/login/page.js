@@ -58,6 +58,10 @@ const STATS = [
 ]
 
 export default function LoginPage() {
+  useEffect(() => {
+    document.title = "Feed | TeaTalks"
+  }, [])
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
@@ -77,9 +81,7 @@ export default function LoginPage() {
   const { login, user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-  document.title = "Login | TeaTalks"
-}, [])
+
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -748,6 +750,8 @@ export default function LoginPage() {
       <nav className="tt-nav">
         <Link href="/" className="tt-logo">TeaTalks</Link>
       </nav>
+
+      
 
       <main className="tt-main">
         <div className="tt-left">

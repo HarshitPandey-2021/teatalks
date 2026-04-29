@@ -4,7 +4,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
 
 export const metadata = {
-  title: "TeaTalks",
+  title: "TeaTalks",  // ← Just simple default
   description: "Your Campus. Your Voice. Zero Judgment.",
 };
 

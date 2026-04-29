@@ -72,6 +72,10 @@ const getPasswordStrength = (password) => {
 }
 
 export default function SignupPage() {
+    useEffect(() => {
+      document.title = "SignUp | TeaTalks"
+    }, [])
+  
   const [form, setForm] = useState({ college: '', email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)

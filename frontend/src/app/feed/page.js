@@ -262,6 +262,13 @@ function FloatingLiveButton({ onClick, eventCount }) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 export default function FeedPage() {
+
+  useEffect(() => {
+    document.title = "Feed | TeaTalks"
+  }, [])
+
+
+
   const [activeCategory, setActiveCategory] = useState('All')
   const [activeSort, setActiveSort] = useState('hot')
   const [pulseEvents, setPulseEvents] = useState([])
@@ -282,9 +289,6 @@ export default function FeedPage() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-useEffect(() => {
-  document.title = "Feed | TeaTalks"
-}, [])
 
 
   // Auth guard

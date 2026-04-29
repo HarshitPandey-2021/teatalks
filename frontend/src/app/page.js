@@ -3,7 +3,10 @@ import Image from "next/image";
 import Brewed from "@/components/Brewed";
 import HowItWorks from "@/components/HowItWorks";
 import Testimonial from "@/components/Testimonial";
-
+export const metadata = {
+  title: "Home | TeaTalks",
+  description: "Your Campus. Your Voice.",
+};
 export default function Home() {
   return (
     <main style={{ background: "#ffffff" }}>
