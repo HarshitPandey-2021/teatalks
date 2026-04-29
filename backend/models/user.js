@@ -1,15 +1,22 @@
+const { BRANCH_OPTIONS, YEAR_OPTIONS } = require('../utils/validation');
+
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
-    rollNumber: {
+    campusName: {
       type: String,
       required: true,
-      unique: true
+      trim: true,
+      minlength: 2,
+      maxlength: 80
     },
-    name: {
+    email: {
       type: String,
-      required: true
+      required: true,
+      unique: true,
+      trim: true,
+      lowercase: true
     },
     password: {
       type: String,
@@ -21,7 +28,7 @@ const userSchema = new mongoose.Schema(
     },
     emoji: {
       type: String,
-      default: '🙂'
+      default: '😶'
     },
     role: {
       type: String,
@@ -31,10 +38,58 @@ const userSchema = new mongoose.Schema(
     banStatus: {
       type: Boolean,
       default: false
+    },
+    warningCount: {
+      type: Number,
+      default: 0
+    },
+    lastWarningAt: {
+      type: Date
+    },
+    banReason: {
+      type: String
+    },
+    bannedAt: {
+      type: Date
+    },
+    bannedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    branch: {
+      type: String,
+      default: 'CSE',
+      trim: true,
+      enum: BRANCH_OPTIONS
+    },
+    year: {
+      type: String,
+      default: '1st Year',
+      trim: true,
+      enum: YEAR_OPTIONS
     }
   },
   { timestamps: true}
 );
 
-// ✅ THIS IS IMPORTANT
+userSchema.index(
+  { role: 1 },
+  { unique: true, partialFilterExpression: { role: 'admin' } }
+);
+
+userSchema.pre('save', async function enforceSingleAdmin() {
+  if (this.role !== 'admin') {
+    return;
+  }
+
+  const existingAdmin = await this.constructor.findOne({
+    role: 'admin',
+    _id: { $ne: this._id },
+  }).select('_id');
+
+  if (existingAdmin) {
+    throw new Error('Only one admin account is allowed.');
+  }
+});
+
 module.exports = mongoose.model('User', userSchema, 'Users');

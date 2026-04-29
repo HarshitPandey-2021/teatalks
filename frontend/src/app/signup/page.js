@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Lock, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { isValidEmail, isValidOtp, isValidPassword, PASSWORD_MESSAGE } from '@/lib/validation'
 
 const POSTS = [
   {
@@ -59,13 +60,18 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState('')
+  const [otpModalOpen, setOtpModalOpen] = useState(false)
+  const [otpStep, setOtpStep] = useState('otp')
+  const [otpValue, setOtpValue] = useState('')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpMessage, setOtpMessage] = useState('')
   const [collegeQuery, setCollegeQuery] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [colleges, setColleges] = useState(DEFAULT_COLLEGES)
   const [tickerIndex, setTickerIndex] = useState(0)
 
   const dropdownRef = useRef(null)
-  const { signup, isAuthenticated, loading: authLoading } = useAuth()
+  const { signup, requestSignupOtp, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
@@ -121,23 +127,55 @@ export default function SignupPage() {
     e.preventDefault()
     const errs = {}
     if (!form.college) errs.college = 'Select your campus'
-    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
+    if (!isValidEmail(form.email.trim()))
       errs.email = 'Enter a valid email'
-    if (form.password.length < 6) errs.password = 'Minimum 6 characters'
+    if (!isValidPassword(form.password)) errs.password = PASSWORD_MESSAGE
     if (Object.keys(errs).length) return setFieldErrors(errs)
 
     setLoading(true)
     setError('')
     try {
-      await signup({
+      await requestSignupOtp({
         email: form.email.trim(),
         college: form.college,
         password: form.password,
       })
+      setOtpValue('')
+      setOtpMessage('OTP sent to your email. Enter it below to finish signup.')
+      setOtpStep('otp')
+      setOtpModalOpen(true)
+      setLoading(false)
     } catch (err) {
       setError(err.response?.data?.message || 'Something went wrong. Try again.')
       setLoading(false)
     }
+  }
+
+  const handleVerifySignupOtp = async () => {
+    if (!isValidOtp(otpValue)) {
+      setOtpMessage('Enter the 6-digit OTP from your email.')
+      return
+    }
+    setOtpLoading(true)
+    setOtpMessage('')
+    try {
+      await signup({
+        email: form.email.trim(),
+        college: form.college,
+        otp: otpValue.trim(),
+      }, { redirect: false })
+      setOtpStep('done')
+      setOtpMessage('Your account is ready. Click OK to open your dashboard.')
+    } catch (err) {
+      setOtpMessage(err?.response?.data?.message || 'OTP verification failed.')
+    } finally {
+      setOtpLoading(false)
+    }
+  }
+
+  const handleSignupSuccessClose = () => {
+    setOtpModalOpen(false)
+    router.push('/feed')
   }
 
   if (authLoading || isAuthenticated) return null
@@ -783,7 +821,7 @@ export default function SignupPage() {
               <em>secrets worth reading.</em>
             </h1>
             <p className="tt-subline">
-              Anonymous confessions, opinions &amp; campus tea — real, raw, and nobody knows it's you.
+              Anonymous confessions, opinions &amp; campus tea - real, raw, and nobody knows it&apos;s you.
             </p>
 
             {/* ── FORM ── */}
@@ -854,7 +892,7 @@ export default function SignupPage() {
                     id="su-pw" name="password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password} onChange={update}
-                    placeholder="Min. 6 characters"
+                    placeholder="Uppercase, lowercase, number, special"
                     autoComplete="new-password"
                     className={`tt-input ${fieldErrors.password ? 'err' : ''}`}
                     style={{ paddingRight: '2.5rem' }}
@@ -868,6 +906,9 @@ export default function SignupPage() {
                   </button>
                 </div>
                 {fieldErrors.password && <span className="tt-field-err">{fieldErrors.password}</span>}
+                {!fieldErrors.password && (
+                  <span className="tt-field-err" style={{ color: '#9c8270' }}>{PASSWORD_MESSAGE}</span>
+                )}
               </div>
 
               <button type="submit" className="tt-cta" disabled={loading}>
@@ -896,7 +937,7 @@ export default function SignupPage() {
         {/* ══ RIGHT — DESKTOP POSTS ══ */}
         <div className="tt-right">
           <div className="tt-right-header">
-            <p className="tt-right-title">What's happening on campus</p>
+            <p className="tt-right-title">What&apos;s happening on campus</p>
             <div className="tt-live-row">
               <div className="tt-live-dot" />
               Live · 1,204 students online now
@@ -947,6 +988,53 @@ export default function SignupPage() {
           </div>
         </div>
       </main>
+
+      <AnimatePresence>
+        {otpModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget && otpStep !== 'done') setOtpModalOpen(false) }}
+            style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,16,12,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.98 }}
+              style={{ width: '100%', maxWidth: 460, background: '#fff8f1', borderRadius: 18, border: '1px solid rgba(120, 90, 60, 0.14)', padding: '1rem' }}
+            >
+              <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1.1rem', fontWeight: 800, color: '#3d2f1e', marginBottom: '0.35rem' }}>Verify Your Email</h3>
+              <p style={{ fontSize: '0.82rem', color: '#7b6553', marginBottom: '0.9rem' }}>We sent a signup OTP to <strong>{form.email.trim()}</strong>.</p>
+              {otpMessage && <div className="tt-error" style={{ marginBottom: '0.75rem' }}>{otpMessage}</div>}
+
+              {otpStep === 'otp' ? (
+                <div style={{ display: 'grid', gap: '0.65rem' }}>
+                  <input
+                    type="text"
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value)}
+                    placeholder="Enter OTP"
+                    className="tt-input"
+                  />
+                  <button type="button" className="tt-cta" onClick={handleVerifySignupOtp} disabled={otpLoading}>
+                    {otpLoading ? <><span className="tt-spin" /> Verifying…</> : <>Verify & Create Account <ArrowRight size={15} strokeWidth={2.5} /></>}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.65rem' }}>
+                  <div style={{ padding: '0.875rem', borderRadius: 12, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.16)', color: '#166534', fontWeight: 700, textAlign: 'center' }}>
+                    Signup successful
+                  </div>
+                  <button type="button" className="tt-cta" onClick={handleSignupSuccessClose}>
+                    Okay
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

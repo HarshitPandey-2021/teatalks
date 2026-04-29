@@ -1,51 +1,18 @@
 // app/profile/page.jsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
-import usePosts from '@/store/usePosts'
+import { useToast } from '@/context/ToastContext'
+import api from '@/lib/axios'
+import { BRANCH_OPTIONS, YEAR_OPTIONS, validatePostText, validateTags } from '@/lib/validation'
 
-const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace']
-const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']
-
-const PROFILE_STATS = {
-  totalPosts: 12, totalComments: 47, karma: 1834, karmaNextLevel: 2500,
-  daysActive: 23, currentStreak: 7, longestStreak: 14, campusRank: 42,
-  totalUsers: 1847, joinedDate: new Date(Date.now() - 23 * 86400000).toISOString(),
-  weeklyKarma: [120, 85, 200, 156, 312, 98, 245],
-}
-
-const MY_POSTS = [
-  { _id: '1', text: "Does anyone have Sharma sir's DBMS notes? Unit 4 specifically. Exam in 3 days 😭", category: 'Academic', score: 342, commentCount: 56, createdAt: new Date(Date.now() - 2 * 3600000).toISOString(), tags: ['DBMS', 'Notes'] },
-  { _id: '4', text: "Why does the WiFi in Hostel Block C work at 3 AM but dies during classes? 📡💀", category: 'Rants', score: 567, commentCount: 34, createdAt: new Date(Date.now() - 12 * 3600000).toISOString(), tags: ['WiFi', 'HostelLife'] },
-  { _id: '6', text: "Placement cell just dropped intern opportunities for pre-final years. Check email ASAP.", category: 'Academic', score: 1456, commentCount: 112, createdAt: new Date(Date.now() - 24 * 3600000).toISOString(), tags: ['Placements'] },
-]
-
-const ACTIVITY_FEED = [
-  { id: 'a1', type: 'upvote', icon: 'arrow_upward', text: 'Your DBMS post received 12 new upvotes', time: '2h ago', color: '#ec4899' },
-  { id: 'a2', type: 'comment', icon: 'chat_bubble', text: 'Someone replied to your WiFi rant', time: '4h ago', color: '#fb923c' },
-  { id: 'a3', type: 'milestone', icon: 'emoji_events', text: 'You crossed 1,800 karma! 🎉', time: '8h ago', color: '#f59e0b' },
-  { id: 'a4', type: 'streak', icon: 'local_fire_department', text: '7-day streak! Keep the fire going 🔥', time: '1d ago', color: '#ef4444' },
-  { id: 'a5', type: 'upvote', icon: 'trending_up', text: 'Placement post is trending in Academic', time: '1d ago', color: '#ec4899' },
-  { id: 'a6', type: 'badge', icon: 'military_tech', text: 'You earned "Going Viral" badge 🚀', time: '2d ago', color: '#8b5cf6' },
-]
-
-const BADGES = [
-  { id: 'first-post', icon: '🎯', label: 'First Post', desc: 'Published your first anonymous post', earned: true, earnedDate: '2024-01-15' },
-  { id: 'karma-100', icon: '⭐', label: 'Rising Star', desc: 'Earned 100+ karma', earned: true, earnedDate: '2024-01-18' },
-  { id: 'streak-7', icon: '🔥', label: 'On Fire', desc: '7-day posting streak', earned: true, earnedDate: '2024-02-01' },
-  { id: 'karma-1000', icon: '💎', label: 'Diamond Mind', desc: 'Earned 1000+ karma', earned: true, earnedDate: '2024-02-10' },
-  { id: 'comments-50', icon: '💬', label: 'Chatterbox', desc: '50+ comments posted', earned: false, progress: 47, total: 50 },
-  { id: 'viral', icon: '🚀', label: 'Going Viral', desc: 'Get 500+ upvotes on a post', earned: true, earnedDate: '2024-02-12' },
-  { id: 'streak-30', icon: '👑', label: 'Legendary', desc: '30-day posting streak', earned: false, progress: 7, total: 30 },
-  { id: 'helper', icon: '🤝', label: 'Campus Helper', desc: 'Get 20 "helpful" reactions', earned: false, progress: 12, total: 20 },
-]
+const CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews']
 
 const STREAK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-const STREAK_DATA = [true, true, true, true, true, true, true]
 const CAT_COLORS = { Academic: '#b00d6a', Rants: '#b41340', Reviews: '#ea6c00', Hostel: '#9a3412', General: '#16a34a' }
 
 function timeAgo(d) {
@@ -57,7 +24,80 @@ function timeAgo(d) {
   return `${Math.floor(s / 86400)}d ago`
 }
 function fmt(n) { if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'; return String(n) }
-function daysSince(d) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000) }
+function daysSince(d) {
+  if (!d) return 0
+  const timestamp = new Date(d).getTime()
+  if (Number.isNaN(timestamp)) return 0
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86400000))
+}
+
+function getDayKey(value) {
+  const d = new Date(value)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function computeStreaks(posts) {
+  const dayKeys = Array.from(new Set(posts.map((p) => getDayKey(p.createdAt)))).sort()
+  if (dayKeys.length === 0) return { currentStreak: 0, longestStreak: 0 }
+
+  let longest = 1
+  let running = 1
+  for (let i = 1; i < dayKeys.length; i++) {
+    const prev = new Date(dayKeys[i - 1])
+    const curr = new Date(dayKeys[i])
+    const diff = Math.round((curr - prev) / 86400000)
+    if (diff === 1) {
+      running += 1
+      longest = Math.max(longest, running)
+    } else {
+      running = 1
+    }
+  }
+
+  const todayKey = getDayKey(new Date())
+  let current = 0
+  let cursor = new Date(todayKey)
+  while (dayKeys.includes(getDayKey(cursor))) {
+    current += 1
+    cursor = new Date(cursor.getTime() - 86400000)
+  }
+
+  return { currentStreak: current, longestStreak: longest }
+}
+
+function getChronologicalPosts(posts) {
+  return [...posts].filter((post) => post?.createdAt).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+}
+
+function getKarmaEarnedDate(posts, target) {
+  let total = 0
+  for (const post of posts) {
+    total += Math.max(0, post?.score || 0)
+    if (total >= target) return post.createdAt
+  }
+  return null
+}
+
+function getStreakEarnedDate(posts, target) {
+  const dayKeys = Array.from(new Set(posts.map((post) => getDayKey(post.createdAt)))).sort()
+  if (!dayKeys.length) return null
+  if (target <= 1) return dayKeys[0]
+
+  let running = 1
+  for (let i = 1; i < dayKeys.length; i++) {
+    const prev = new Date(dayKeys[i - 1])
+    const curr = new Date(dayKeys[i])
+    const diff = Math.round((curr - prev) / 86400000)
+
+    running = diff === 1 ? running + 1 : 1
+    if (running >= target) return dayKeys[i]
+  }
+
+  return null
+}
 
 function KarmaRing({ current, target, size = 76, stroke = 4 }) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, p = Math.min(current / target, 1)
@@ -89,7 +129,7 @@ function WeeklyChart({ data }) {
   )
 }
 
-function PostItem({ post, index }) {
+function PostItem({ post, index, onEdit, onDelete }) {
   const cc = CAT_COLORS[post.category] || '#6b665e'
   const router = useRouter()
   return (
@@ -118,6 +158,20 @@ function PostItem({ post, index }) {
           <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#ec4899', fontVariationSettings: "'FILL' 1" }}>arrow_upward</span>{fmt(post.score)}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.6875rem', color: '#6b665e', fontWeight: 600 }}>
           <span className="material-symbols-outlined" style={{ fontSize: 13 }}>chat_bubble</span>{fmt(post.commentCount)}</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.25rem' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(post) }}
+            style={{ border: '1px solid rgba(236,72,153,0.18)', background: 'rgba(236,72,153,0.06)', color: '#b00d6a', borderRadius: 8, padding: '0.2rem 0.45rem', fontSize: '0.625rem', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(post._id) }}
+            style={{ border: '1px solid rgba(180,19,64,0.2)', background: 'rgba(180,19,64,0.06)', color: '#b41340', borderRadius: 8, padding: '0.2rem 0.45rem', fontSize: '0.625rem', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Delete
+          </button>
+        </div>
       </div>
     </motion.div>
   )
@@ -180,27 +234,32 @@ function CustomSelect({ value, options, onChange, icon, label }) {
   )
 }
 
-/* We need useRef for CustomSelect */
-import { useRef } from 'react'
-
 export default function ProfilePage() {
   const { user, isAuthenticated, loading: authLoading, logout, updateProfile } = useAuth()
+  const { error: showErrorToast, warning: showWarningToast } = useToast()
   const router = useRouter()
-  const livePosts = usePosts((s) => s.posts)
+  const [myPosts, setMyPosts] = useState([])
+  const [profileLoading, setProfileLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('posts')
   const [selectedBadge, setSelectedBadge] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [editModalPost, setEditModalPost] = useState(null)
+  const [editForm, setEditForm] = useState({ text: '', category: 'General', tags: '' })
+  const [editLoading, setEditLoading] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [activityFeed, setActivityFeed] = useState([])
 
   // Editable fields
   const [editBranch, setEditBranch] = useState(user?.branch || 'CSE')
-  const [editYear, setEditYear] = useState(user?.year || '3rd Year')
+  const [editYear, setEditYear] = useState(user?.year || '1st Year')
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [settingsChanged, setSettingsChanged] = useState(false)
 
   // Track changes
   useEffect(() => {
     const branchChanged = editBranch !== (user?.branch || 'CSE')
-    const yearChanged = editYear !== (user?.year || '3rd Year')
+    const yearChanged = editYear !== (user?.year || '1st Year')
     setSettingsChanged(branchChanged || yearChanged)
     setSettingsSaved(false)
   }, [editBranch, editYear, user])
@@ -209,50 +268,187 @@ export default function ProfilePage() {
   useEffect(() => {
     if (showSettings) {
       setEditBranch(user?.branch || 'CSE')
-      setEditYear(user?.year || '3rd Year')
+      setEditYear(user?.year || '1st Year')
       setSettingsSaved(false)
       setSettingsChanged(false)
     }
   }, [showSettings, user])
 
-  const handleSaveSettings = () => {
-    // If updateProfile exists in auth context, call it
-    if (typeof updateProfile === 'function') {
-      updateProfile({ branch: editBranch, year: editYear })
+  const handleSaveSettings = async () => {
+    try {
+      if (typeof updateProfile === 'function') {
+        await updateProfile({ branch: editBranch, year: editYear })
+      }
+      setSettingsSaved(true)
+      setSettingsChanged(false)
+      setTimeout(() => {
+        setSettingsSaved(false)
+        setShowSettings(false)
+      }, 1200)
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || 'Failed to update profile')
     }
-    setSettingsSaved(true)
-    setSettingsChanged(false)
-    setTimeout(() => {
-      setSettingsSaved(false)
-      setShowSettings(false)
-    }, 1200)
   }
 
-  const myPosts = (() => {
-    const from = livePosts.filter(p => p.isMine)
-    const merged = [...from, ...MY_POSTS]
-    const seen = new Set()
-    return merged.filter(p => { if (seen.has(p._id)) return false; seen.add(p._id); return true })
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  useEffect(() => {
+    const loadProfilePosts = async () => {
+      if (!isAuthenticated) return
+      try {
+        const [postsRes, activityRes] = await Promise.all([
+          api.get('/users/my-posts'),
+          api.get('/users/my-activity'),
+        ])
+        setMyPosts((postsRes.data.posts || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)))
+        setActivityFeed((activityRes.data.activity || []).map((item) => ({
+          ...item,
+          time: timeAgo(item.createdAt),
+          color: item.type === 'comment' ? '#fb923c' : '#ec4899',
+        })))
+      } catch (error) {
+        setMyPosts([])
+        setActivityFeed([])
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+    loadProfilePosts()
+  }, [isAuthenticated])
+
+  const ds = (() => {
+    const totalPosts = myPosts.length
+    const totalComments = myPosts.reduce((acc, p) => acc + (p.commentCount || 0), 0)
+    const karma = myPosts.reduce((acc, p) => acc + Math.max(0, p.score || 0), 0)
+    const karmaNextLevel = Math.max(500, Math.ceil((karma + 1) / 500) * 500)
+    const joinedDate = user?.createdAt || myPosts[myPosts.length - 1]?.createdAt || null
+
+    const { currentStreak, longestStreak } = computeStreaks(myPosts)
+
+    const weekStart = new Date()
+    weekStart.setHours(0, 0, 0, 0)
+    const shift = (weekStart.getDay() + 6) % 7
+    weekStart.setDate(weekStart.getDate() - shift)
+    const weeklyKarma = Array(7).fill(0)
+    myPosts.forEach((p) => {
+      const created = new Date(p.createdAt)
+      const dayIndex = Math.floor((new Date(created.getFullYear(), created.getMonth(), created.getDate()) - weekStart) / 86400000)
+      if (dayIndex >= 0 && dayIndex < 7) weeklyKarma[dayIndex] += Math.max(0, p.score || 0)
+    })
+
+    return {
+      totalPosts,
+      totalComments,
+      karma,
+      karmaNextLevel,
+      joinedDate,
+      currentStreak,
+      longestStreak,
+      weeklyKarma,
+    }
   })()
 
-  const ds = { ...PROFILE_STATS, totalPosts: PROFILE_STATS.totalPosts + livePosts.filter(p => p.isMine).length }
+  const chronologicalPosts = getChronologicalPosts(myPosts)
+  const firstPostDate = chronologicalPosts[0]?.createdAt || null
+  const karma100Date = getKarmaEarnedDate(chronologicalPosts, 100)
+  const karma1000Date = getKarmaEarnedDate(chronologicalPosts, 1000)
+  const streak7Date = getStreakEarnedDate(chronologicalPosts, 7)
+  const streak30Date = getStreakEarnedDate(chronologicalPosts, 30)
+  const viralDate = chronologicalPosts.find((post) => (post.score || 0) >= 500)?.createdAt || null
+
+  const computedBadges = [
+    { id: 'first-post', icon: '🎯', label: 'First Post', desc: 'Published your first anonymous post', earned: ds.totalPosts >= 1, earnedDate: firstPostDate },
+    { id: 'karma-100', icon: '⭐', label: 'Rising Star', desc: 'Earned 100+ karma', earned: ds.karma >= 100, earnedDate: karma100Date, progress: Math.min(ds.karma, 100), total: 100 },
+    { id: 'streak-7', icon: '🔥', label: 'On Fire', desc: '7-day posting streak', earned: ds.longestStreak >= 7, earnedDate: streak7Date, progress: Math.min(ds.longestStreak, 7), total: 7 },
+    { id: 'karma-1000', icon: '💎', label: 'Diamond Mind', desc: 'Earned 1000+ karma', earned: ds.karma >= 1000, earnedDate: karma1000Date, progress: Math.min(ds.karma, 1000), total: 1000 },
+    { id: 'viral', icon: '🚀', label: 'Going Viral', desc: 'Get 500+ upvotes on a post', earned: Boolean(viralDate), earnedDate: viralDate },
+    { id: 'legend', icon: '👑', label: 'Legendary', desc: '30-day posting streak', earned: ds.longestStreak >= 30, earnedDate: streak30Date, progress: Math.min(ds.longestStreak, 30), total: 30 },
+  ].map((badge) => (badge.earned ? badge : { ...badge, earnedDate: null }))
+
+  const handleDeletePost = async (postId) => {
+    setDeleteLoading(true)
+    try {
+      await api.delete(`/posts/${postId}`)
+      setMyPosts((prev) => prev.filter((p) => p._id !== postId))
+      setDeleteTarget(null)
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || 'Could not delete post')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const openEditModal = (post) => {
+    setEditModalPost(post)
+    setEditForm({
+      text: post.text || '',
+      category: post.category || 'General',
+      tags: (post.tags || []).join(', '),
+    })
+  }
+
+  const closeEditModal = () => {
+    setEditModalPost(null)
+    setEditForm({ text: '', category: 'General', tags: '' })
+    setEditLoading(false)
+  }
+
+  const submitEditPost = async () => {
+    if (!editModalPost) return
+    const text = editForm.text.trim()
+    const textError = validatePostText(text)
+    if (textError) {
+      showWarningToast(textError, { title: 'Missing Content' })
+      return
+    }
+    setEditLoading(true)
+    try {
+      const tagResult = validateTags(editForm.tags.split(',').map((t) => t.trim()).filter(Boolean))
+      if (tagResult.error) {
+        showWarningToast(tagResult.error, { title: 'Invalid Tags' })
+        setEditLoading(false)
+        return
+      }
+      const tags = tagResult.value
+      const res = await api.patch(`/posts/${editModalPost._id}`, { text, category: editForm.category, tags })
+      const updated = res?.data?.post
+      const isVisible = updated?.visibility === 'visible' || updated?.visibility === undefined || updated?.visibility === null
+
+      if (updated && isVisible) {
+        setMyPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updated } : p)))
+      } else {
+        setMyPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
+        showWarningToast('Your post was hidden for review because it was detected as toxic.', { title: 'Post Hidden' })
+      }
+      closeEditModal()
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || 'Could not update post')
+      setEditLoading(false)
+    }
+  }
 
   useEffect(() => { if (!authLoading && !isAuthenticated) router.push('/login') }, [authLoading, isAuthenticated, router])
 
   const TABS = [
     { key: 'posts', label: 'Posts', icon: 'edit_square', count: myPosts.length },
-    { key: 'badges', label: 'Badges', icon: 'military_tech', count: BADGES.filter(b => b.earned).length },
-    { key: 'activity', label: 'Activity', icon: 'timeline', count: ACTIVITY_FEED.length },
+    { key: 'badges', label: 'Badges', icon: 'military_tech', count: computedBadges.filter(b => b.earned).length },
+    { key: 'activity', label: 'Activity', icon: 'timeline', count: activityFeed.length },
   ]
 
-  if (authLoading || !isAuthenticated) {
+  if (authLoading || !isAuthenticated || profileLoading) {
     return (<div style={{ minHeight: '100vh', background: '#fefcf9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 40, height: 40, border: '3px solid #eae1d5', borderTopColor: '#ec4899', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} /></div>)
   }
 
   const kp = ds.karma / ds.karmaNextLevel
-  const rp = Math.round((1 - ds.campusRank / ds.totalUsers) * 100)
+  const startOfWeek = new Date()
+  startOfWeek.setHours(0, 0, 0, 0)
+  const shift = (startOfWeek.getDay() + 6) % 7
+  startOfWeek.setDate(startOfWeek.getDate() - shift)
+  const postDays = new Set(myPosts.map((p) => getDayKey(p.createdAt)))
+  const streakWeekData = STREAK_DAYS.map((_, i) => {
+    const d = new Date(startOfWeek)
+    d.setDate(startOfWeek.getDate() + i)
+    return postDays.has(getDayKey(d))
+  })
 
   return (
     <>
@@ -325,8 +521,8 @@ export default function ProfilePage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.1875rem 0.5rem',
                     borderRadius: 999, background: 'rgba(236,72,153,0.06)', border: '1px solid rgba(236,72,153,0.1)' }}>
                     <span style={{ fontSize: '0.5625rem' }}>👑</span>
-                    <span style={{ fontSize: '0.5625rem', fontWeight: 800, color: '#ec4899' }}>#{ds.campusRank}</span>
-                    <span style={{ fontSize: '0.4375rem', fontWeight: 600, color: 'rgba(236,72,153,0.5)' }}>Top {rp}%</span>
+                    <span style={{ fontSize: '0.5625rem', fontWeight: 800, color: '#ec4899' }}>{ds.totalPosts}</span>
+                    <span style={{ fontSize: '0.4375rem', fontWeight: 600, color: 'rgba(236,72,153,0.5)' }}>Total posts</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', padding: '0.1875rem 0.5rem',
                     borderRadius: 999, background: 'rgba(251,146,60,0.06)', border: '1px solid rgba(251,146,60,0.1)' }}>
@@ -459,11 +655,11 @@ export default function ProfilePage() {
                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}
                         transition={{ delay: 0.2 + i * 0.04, type: 'spring', damping: 15, stiffness: 250 }}
                         style={{ width: 22, height: 22, borderRadius: '50%',
-                          background: STREAK_DATA[i] ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'rgba(234,225,213,0.4)',
+                          background: streakWeekData[i] ? 'linear-gradient(135deg, #f97316, #ef4444)' : 'rgba(234,225,213,0.4)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {STREAK_DATA[i] && <span className="material-symbols-outlined" style={{ fontSize: 12, color: '#fff', fontVariationSettings: "'FILL' 1" }}>check</span>}
+                        {streakWeekData[i] && <span className="material-symbols-outlined" style={{ fontSize: 12, color: '#fff', fontVariationSettings: "'FILL' 1" }}>check</span>}
                       </motion.div>
-                      <span style={{ fontSize: '0.4375rem', fontWeight: 700, color: STREAK_DATA[i] ? '#f97316' : '#c8c1b8' }}>{day}</span>
+                      <span style={{ fontSize: '0.4375rem', fontWeight: 700, color: streakWeekData[i] ? '#f97316' : '#c8c1b8' }}>{day}</span>
                     </div>
                   ))}
                 </div>
@@ -488,8 +684,8 @@ export default function ProfilePage() {
               transition={{ duration: 0.3, delay: 0.2 }}
               style={{ display: 'flex', gap: '0.5rem', marginTop: '0.625rem' }}>
               {[{ label: 'Posts', value: ds.totalPosts, icon: 'edit_square', color: '#ec4899' },
-                { label: 'Comments', value: PROFILE_STATS.totalComments, icon: 'chat_bubble', color: '#fb923c' },
-                { label: 'Best', value: `${PROFILE_STATS.longestStreak}d`, icon: 'emoji_events', color: '#f59e0b' }].map((s, i) => (
+                { label: 'Comments', value: ds.totalComments, icon: 'chat_bubble', color: '#fb923c' },
+                { label: 'Best', value: `${ds.longestStreak}d`, icon: 'emoji_events', color: '#f59e0b' }].map((s, i) => (
                 <motion.div key={s.label} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.25 + i * 0.05 }}
                   style={{ flex: 1, background: '#fff', borderRadius: '0.75rem', padding: '0.625rem 0.375rem',
@@ -533,7 +729,7 @@ export default function ProfilePage() {
                 <motion.div key="p" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 6 }} transition={{ duration: 0.18 }}
                   style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {myPosts.length > 0 ? myPosts.map((p, i) => <PostItem key={p._id} post={p} index={i} />) : (
+                  {myPosts.length > 0 ? myPosts.map((p, i) => <PostItem key={p._id} post={p} index={i} onEdit={openEditModal} onDelete={(id) => setDeleteTarget(myPosts.find((post) => post._id === id) || null)} />) : (
                     <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem', background: '#fff',
                       borderRadius: '1rem', border: '1px dashed rgba(234,225,213,0.5)' }}>
                       <motion.span animate={{ y: [0, -5, 0] }} transition={{ duration: 2, repeat: Infinity }}
@@ -556,8 +752,8 @@ export default function ProfilePage() {
                 <motion.div key="b" initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 6 }} transition={{ duration: 0.18 }}>
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.625rem' }}>
-                    {[{ l: 'Earned', v: BADGES.filter(b => b.earned).length, c: '#ec4899' },
-                      { l: 'Locked', v: BADGES.filter(b => !b.earned).length, c: '#b3aca3' }].map(s => (
+                    {[{ l: 'Earned', v: computedBadges.filter(b => b.earned).length, c: '#ec4899' },
+                      { l: 'Locked', v: computedBadges.filter(b => !b.earned).length, c: '#b3aca3' }].map(s => (
                       <div key={s.l} style={{ flex: 1, padding: '0.625rem', borderRadius: '0.75rem',
                         background: '#fff', textAlign: 'center', border: '1px solid rgba(234,225,213,0.25)' }}>
                         <p style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 800, fontSize: '1.125rem', color: s.c }}>{s.v}</p>
@@ -566,7 +762,7 @@ export default function ProfilePage() {
                     ))}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.375rem' }}>
-                    {BADGES.map((b, i) => (
+                    {computedBadges.map((b, i) => (
                       <motion.button key={b.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.25, delay: i * 0.04 }} whileTap={{ scale: 0.92 }}
                         onClick={() => setSelectedBadge(b)}
@@ -587,7 +783,7 @@ export default function ProfilePage() {
                       </motion.button>
                     ))}
                   </div>
-                  {(() => { const n = BADGES.find(b => !b.earned && b.progress !== undefined); if (!n) return null; return (
+                  {(() => { const n = computedBadges.find(b => !b.earned && b.progress !== undefined); if (!n) return null; return (
                     <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                       style={{ marginTop: '0.625rem', padding: '0.75rem', background: '#fff', borderRadius: '0.75rem',
                         border: '1px solid rgba(234,225,213,0.25)', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -612,7 +808,7 @@ export default function ProfilePage() {
                   exit={{ opacity: 0, x: 6 }} transition={{ duration: 0.18 }}>
                   <div style={{ background: '#fff', borderRadius: '0.875rem',
                     border: '1px solid rgba(234,225,213,0.25)', overflow: 'hidden' }}>
-                    {ACTIVITY_FEED.map((item, i) => (
+                    {activityFeed.map((item, i) => (
                       <motion.div key={item.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2, delay: i * 0.04 }}
                         style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem',
@@ -636,6 +832,85 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {editModalPost && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) closeEditModal() }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(16,12,8,0.5)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              style={{ width: '100%', maxWidth: 520, background: '#fff', borderRadius: 16, padding: '1rem', border: '1px solid rgba(234,225,213,0.45)' }}
+            >
+              <h3 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '1rem', fontWeight: 800, color: '#2e2318' }}>Edit Post</h3>
+              <p style={{ margin: '0.35rem 0 0.8rem', color: '#857f75', fontSize: '0.8rem' }}>Update your content, category and tags.</p>
+              <textarea
+                value={editForm.text}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, text: e.target.value }))}
+                rows={5}
+                style={{ width: '100%', borderRadius: 10, border: '1px solid rgba(211,200,185,0.45)', padding: '0.7rem', marginBottom: '0.65rem', resize: 'vertical' }}
+              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, category: e.target.value }))}
+                  style={{ borderRadius: 10, border: '1px solid rgba(211,200,185,0.45)', padding: '0.6rem' }}
+                >
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <input
+                  value={editForm.tags}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, tags: e.target.value }))}
+                  placeholder="tags (comma separated)"
+                  style={{ borderRadius: 10, border: '1px solid rgba(211,200,185,0.45)', padding: '0.6rem' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.9rem' }}>
+                <button onClick={closeEditModal} style={{ borderRadius: 999, border: '1px solid rgba(211,200,185,0.4)', background: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                <button onClick={submitEditPost} disabled={editLoading} style={{ borderRadius: 999, border: 'none', background: 'linear-gradient(135deg,#b00d6a,#f97316)', color: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer', opacity: editLoading ? 0.7 : 1 }}>
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null) }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(16,12,8,0.5)', zIndex: 1201, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 18, scale: 0.98 }}
+              style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 16, padding: '1rem' }}
+            >
+              <h3 style={{ margin: 0, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, color: '#2e2318' }}>Delete this post?</h3>
+              <p style={{ color: '#7b766e', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                This action cannot be undone. Your post and its comments will be removed permanently.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                <button onClick={() => setDeleteTarget(null)} style={{ borderRadius: 999, border: '1px solid rgba(211,200,185,0.4)', background: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Keep</button>
+                <button onClick={() => handleDeletePost(deleteTarget._id)} disabled={deleteLoading} style={{ borderRadius: 999, border: 'none', background: '#b41340', color: '#fff', padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer', opacity: deleteLoading ? 0.7 : 1 }}>
+                  {deleteLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ══ BADGE MODAL ══ */}
       <AnimatePresence>

@@ -2,6 +2,7 @@ import axios from 'axios'
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+const AUTH_CHANGE_EVENT = 'teatalks-auth-change'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -12,7 +13,7 @@ const api = axios.create({
 // ── Attach JWT to every request ──
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('teatalks_token')
+    const token = sessionStorage.getItem('teatalks_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -25,8 +26,9 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && typeof window !== 'undefined') {
-      localStorage.removeItem('teatalks_token')
-      localStorage.removeItem('teatalks_user')
+      sessionStorage.removeItem('teatalks_token')
+      sessionStorage.removeItem('teatalks_user')
+      window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
       window.location.href = '/login'
     }
     return Promise.reject(error)

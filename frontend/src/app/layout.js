@@ -3,6 +3,10 @@ import "./globals.css";
 
 import LayoutShell from "@/components/LayoutShell";
 import { AuthProvider } from "@/context/AuthContext";
+import "./globals.css"
+import LayoutShell from "../components/LayoutShell"
+import { AuthProvider } from "../context/AuthContext"
+import { ToastProvider } from "../context/ToastContext"
 
 export const metadata = {
   title: "TeaTalks",
@@ -50,4 +54,12 @@ export default function RootLayout({ children }) {
       </body>
     </html>
   );
+}
+          <ToastProvider>
+            <LayoutShell>{children}</LayoutShell>
+          </ToastProvider>
+        </AuthProvider>
+      </body>
+    </html>
+  )
 }

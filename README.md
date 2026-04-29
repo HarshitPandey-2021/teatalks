@@ -79,7 +79,18 @@ node server.js
 
 The API will run at **[http://localhost:5000](http://localhost:5000)**
 
-> **Note:** The `server.js` file will be created soon. For now, focus on the frontend if you are working on UI pages.
+### One-time Admin Bootstrap
+
+1. Create `backend/.env` from `backend/.env.example`
+2. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+3. Run:
+
+```bash
+cd backend
+npm run seed:admin
+```
+
+Only one admin account is allowed. After first creation, further admin creation is blocked.
 
 ---
 

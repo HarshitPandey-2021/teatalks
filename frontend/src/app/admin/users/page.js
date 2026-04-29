@@ -4,69 +4,92 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import AdminSidebar from '@/components/AdminSidebar'
+import api from '@/lib/axios'
 
-const USERS_DATA = [
-  { id: 'u1', emoji: '🦊', name: 'Golden Fox', uid: '92831', joined: 'Oct 12, 2023', posts: 142, reports: 0, status: 'active' },
-  { id: 'u2', emoji: '🦉', name: 'Night Owl', uid: '88402', joined: 'Nov 04, 2023', posts: 56, reports: 3, status: 'active' },
-  { id: 'u3', emoji: '🐼', name: 'Sleepy Panda', uid: '91203', joined: 'Sep 15, 2023', posts: 203, reports: 1, status: 'active' },
-  { id: 'u4', emoji: '🐍', name: 'Silent Snake', uid: '77219', joined: 'Aug 29, 2023', posts: 12, reports: 14, status: 'banned' },
-  { id: 'u5', emoji: '🦋', name: 'Velvet Wing', uid: '99102', joined: 'Dec 01, 2023', posts: 318, reports: 1, status: 'active' },
-  { id: 'u6', emoji: '🐸', name: 'Chilled Frog', uid: '85041', joined: 'Oct 28, 2023', posts: 89, reports: 0, status: 'active' },
-  { id: 'u7', emoji: '🐧', name: 'Cool Penguin', uid: '73882', joined: 'Jul 14, 2023', posts: 7, reports: 9, status: 'banned' },
-  { id: 'u8', emoji: '🦅', name: 'Swift Eagle', uid: '96551', joined: 'Jan 05, 2024', posts: 45, reports: 0, status: 'active' },
-  { id: 'u9', emoji: '🐬', name: 'Blue Dolphin', uid: '82109', joined: 'Nov 20, 2023', posts: 167, reports: 2, status: 'active' },
-  { id: 'u10', emoji: '🦝', name: 'Mystic Raccoon', uid: '71003', joined: 'Jun 30, 2023', posts: 4, reports: 11, status: 'banned' },
-]
+function formatDate(date) {
+  if (!date) return '—'
+  return new Date(date).toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' })
+}
 
 export default function AdminUsersPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { error: showErrorToast } = useToast()
   const router = useRouter()
-
-  const [users, setUsers] = useState(USERS_DATA)
+  const [users, setUsers] = useState([])
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [confirmModal, setConfirmModal] = useState(null)
   const [toast, setToast] = useState(null)
+  const [loadingData, setLoadingData] = useState(true)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
     if (!authLoading && isAuthenticated && user?.role !== 'admin') router.push('/feed')
   }, [authLoading, isAuthenticated, user, router])
 
+  const loadUsers = async () => {
+    try {
+      setLoadingData(true)
+      const res = await api.get('/admin/users')
+      setUsers(Array.isArray(res.data?.users) ? res.data.users : [])
+    } catch (error) {
+      console.error('Failed to load admin users', error)
+    } finally {
+      setLoadingData(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') return
+    loadUsers()
+  }, [isAuthenticated, user])
+
   const filtered = useMemo(() => {
     return users.filter((u) => {
-      if (filter === 'active' && u.status !== 'active') return false
-      if (filter === 'banned' && u.status !== 'banned') return false
-      if (filter === 'flagged' && u.reports < 3) return false
+      const status = u.banStatus ? 'banned' : 'active'
+      if (filter === 'active' && status !== 'active') return false
+      if (filter === 'banned' && status !== 'banned') return false
+      if (filter === 'flagged' && (u.reportCount || 0) < 3) return false
       if (search.trim()) {
         const q = search.toLowerCase()
-        return u.name.toLowerCase().includes(q) || u.uid.includes(q)
+        return (
+          (u.anonymousName || '').toLowerCase().includes(q) ||
+          String(u._id || '').toLowerCase().includes(q)
+        )
       }
       return true
     })
   }, [users, filter, search])
 
-  const handleBan = (userId) => {
-    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, status: 'banned' } : u))
-    setConfirmModal(null)
-    showToast('User has been banned')
+  const handleBan = async (userId) => {
+    try {
+      await api.patch(`/admin/users/${userId}/ban`, { banned: true, reason: 'Banned by admin' })
+      setConfirmModal(null)
+      setToast('User has been banned')
+      await loadUsers()
+      setTimeout(() => setToast(null), 2000)
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || 'Unable to ban user')
+    }
   }
 
-  const handleUnban = (userId) => {
-    setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, status: 'active', reports: 0 } : u))
-    showToast('User has been unbanned')
+  const handleUnban = async (userId) => {
+    try {
+      await api.patch(`/admin/users/${userId}/ban`, { banned: false, reason: '' })
+      setToast('User has been unbanned')
+      await loadUsers()
+      setTimeout(() => setToast(null), 2000)
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || 'Unable to unban user')
+    }
   }
 
-  const showToast = (msg) => {
-    setToast(msg)
-    setTimeout(() => setToast(null), 2000)
-  }
+  const activeCount = users.filter((u) => !u.banStatus).length
+  const bannedCount = users.filter((u) => u.banStatus).length
 
-  const activeCount = users.filter((u) => u.status === 'active').length
-  const bannedCount = users.filter((u) => u.status === 'banned').length
-
-  if (authLoading || !isAuthenticated || user?.role !== 'admin') {
+  if (authLoading || !isAuthenticated || user?.role !== 'admin' || loadingData) {
     return (
       <div style={{ minHeight: '100vh', background: '#fdf5eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid #eae1d5', borderTopColor: '#b00d6a', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
@@ -89,39 +112,22 @@ export default function AdminUsersPage() {
       <AdminSidebar activePage="users" />
 
       <main className="admin-main-content" style={{ padding: '2rem 1.5rem', maxWidth: '80rem' }}>
-        {/* Header */}
         <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontSize: 'clamp(1.75rem, 4vw, 2.25rem)',
-            fontWeight: 800, letterSpacing: '-0.03em',
-            color: '#322e28', marginBottom: '0.25rem',
-          }}>Manage Community</h2>
-          <p style={{ color: '#5f5b53', fontSize: '0.9375rem' }}>
-            Reviewing {users.length} total anonymous identities
-          </p>
+          <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.75rem, 4vw, 2.25rem)', fontWeight: 800, letterSpacing: '-0.03em', color: '#322e28', marginBottom: '0.25rem' }}>Manage Community</h2>
+          <p style={{ color: '#5f5b53', fontSize: '0.9375rem' }}>Reviewing {users.length} total user accounts</p>
         </div>
 
-        {/* Stats Banner */}
-        <div className="admin-stats-banner" style={{
-          display: 'grid', gridTemplateColumns: '1fr', gap: '1rem',
-          marginBottom: '2rem',
-        }}>
+        <div className="admin-stats-banner" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '2rem' }}>
           <style>{`@media (min-width: 768px) { .admin-stats-banner { grid-template-columns: 2fr 1fr !important; } }`}</style>
 
-          <div style={{
-            background: '#ffffff', borderRadius: '1rem',
-            padding: '2rem', boxShadow: '0 20px 40px rgba(50,46,40,0.06)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            flexWrap: 'wrap', gap: '1rem',
-          }}>
+          <div style={{ background: '#ffffff', borderRadius: '1rem', padding: '2rem', boxShadow: '0 20px 40px rgba(50,46,40,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
             <div>
               <p style={{ fontSize: '0.625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#7b766e', marginBottom: '0.5rem' }}>Safety Overview</p>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
-                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '3rem', fontWeight: 900, color: '#b00d6a', letterSpacing: '-0.03em' }}>98.2%</span>
+                <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: '3rem', fontWeight: 900, color: '#b00d6a', letterSpacing: '-0.03em' }}>{users.length}</span>
                 <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#904800', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>trending_up</span>
-                  Positive Sentiment
+                  <span className="material-symbols-outlined" style={{ fontSize: 16 }}>group</span>
+                  Total Accounts
                 </span>
               </div>
             </div>
@@ -138,92 +144,39 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
-          <div style={{
-            background: 'linear-gradient(135deg, #b00d6a, #904800)',
-            borderRadius: '1rem', padding: '2rem',
-            color: '#ffffff', position: 'relative', overflow: 'hidden',
-          }}>
-            <span className="material-symbols-outlined" style={{
-              position: 'absolute', right: -8, bottom: -8,
-              fontSize: 96, opacity: 0.1, transform: 'rotate(12deg)',
-            }}>security</span>
+          <div style={{ background: 'linear-gradient(135deg, #b00d6a, #904800)', borderRadius: '1rem', padding: '2rem', color: '#ffffff', position: 'relative', overflow: 'hidden' }}>
+            <span className="material-symbols-outlined" style={{ position: 'absolute', right: -8, bottom: -8, fontSize: 96, opacity: 0.1, transform: 'rotate(12deg)' }}>security</span>
             <h3 style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.8125rem', opacity: 0.8, marginBottom: '0.75rem' }}>Quick Action</h3>
             <p style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '1rem', lineHeight: 1.4 }}>
               {bannedCount > 0 ? `${bannedCount} users currently banned.` : 'No users are banned. Community is healthy!'}
             </p>
-            <Link href="/admin/flagged" style={{
-              background: 'rgba(255,255,255,0.2)',
-              backdropFilter: 'blur(8px)',
-              color: '#ffffff', padding: '0.5rem 1.5rem',
-              borderRadius: 9999, fontWeight: 700, fontSize: '0.8125rem',
-              textDecoration: 'none', display: 'inline-block',
-            }}>Review Flagged</Link>
+            <Link href="/admin/flagged" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', color: '#ffffff', padding: '0.5rem 1.5rem', borderRadius: 9999, fontWeight: 700, fontSize: '0.8125rem', textDecoration: 'none', display: 'inline-block' }}>Review Flagged</Link>
           </div>
         </div>
 
-        {/* Table */}
-        <div style={{
-          background: '#f8f0e5', borderRadius: '1rem',
-          overflow: 'hidden',
-        }}>
-          {/* Table Header */}
-          <div style={{
-            padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid rgba(179,172,163,0.1)',
-            background: 'rgba(255,255,255,0.5)',
-            display: 'flex', justifyContent: 'space-between',
-            alignItems: 'center', flexWrap: 'wrap', gap: '1rem',
-          }}>
+        <div style={{ background: '#f8f0e5', borderRadius: '1rem', overflow: 'hidden' }}>
+          <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(179,172,163,0.1)', background: 'rgba(255,255,255,0.5)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {[
                 { k: 'all', l: 'All Users' },
                 { k: 'flagged', l: 'Flagged' },
                 { k: 'banned', l: 'Banned' },
               ].map(({ k, l }) => (
-                <button key={k} onClick={() => setFilter(k)} style={{
-                  padding: '0.375rem 1rem', borderRadius: 9999,
-                  border: 'none', cursor: 'pointer',
-                  fontSize: '0.75rem', fontWeight: 700,
-                  transition: 'all 0.2s',
-                  background: filter === k ? '#ffc69f' : '#efe7dc',
-                  color: filter === k ? '#723800' : '#5f5b53',
-                }}>{l}</button>
+                <button key={k} onClick={() => setFilter(k)} style={{ padding: '0.375rem 1rem', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, background: filter === k ? '#ffc69f' : '#efe7dc', color: filter === k ? '#723800' : '#5f5b53' }}>{l}</button>
               ))}
             </div>
 
             <div style={{ position: 'relative' }}>
-              <span className="material-symbols-outlined" style={{
-                position: 'absolute', left: '0.875rem', top: '50%',
-                transform: 'translateY(-50%)', color: '#b3aca3', fontSize: 18,
-              }}>search</span>
-              <input
-                type="text" value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search identities..."
-                style={{
-                  padding: '0.5rem 1rem 0.5rem 2.5rem',
-                  background: '#ffffff', border: 'none',
-                  borderRadius: 9999, fontSize: '0.8125rem',
-                  color: '#322e28', outline: 'none', width: 240,
-                }}
-              />
+              <span className="material-symbols-outlined" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: '#b3aca3', fontSize: 18 }}>search</span>
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search users..." style={{ padding: '0.5rem 1rem 0.5rem 2.5rem', background: '#ffffff', border: 'none', borderRadius: 9999, fontSize: '0.8125rem', color: '#322e28', outline: 'none', width: 240 }} />
             </div>
           </div>
 
-          {/* User Rows */}
           <div>
             {filtered.map((u) => {
-              const isBanned = u.status === 'banned'
+              const isBanned = !!u.banStatus
               return (
-                <div key={u.id} className="user-row" style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 0.75fr 0.75fr 1fr 1fr',
-                  alignItems: 'center',
-                  padding: '1.25rem 1.5rem',
-                  borderBottom: '1px solid rgba(179,172,163,0.05)',
-                  background: isBanned ? 'rgba(228,220,207,0.2)' : 'transparent',
-                  transition: 'background 0.2s',
-                }}>
+                <div key={u._id} className="user-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.75fr 0.75fr 1fr 1fr', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(179,172,163,0.05)', background: isBanned ? 'rgba(228,220,207,0.2)' : 'transparent', transition: 'background 0.2s' }}>
                   <style>{`
                     .user-row:hover { background: #ffffff !important; }
                     .user-row:hover .user-actions { opacity: 1 !important; }
@@ -235,85 +188,32 @@ export default function AdminUsersPage() {
                     }
                   `}</style>
 
-                  {/* Identity */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                    <div style={{
-                      width: 48, height: 48, borderRadius: '50%',
-                      background: isBanned ? 'rgba(179,172,163,0.2)' : 'rgba(176,13,106,0.08)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '1.5rem',
-                      filter: isBanned ? 'grayscale(100%)' : 'none',
-                      opacity: isBanned ? 0.5 : 1,
-                    }}>{u.emoji}</div>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: isBanned ? 'rgba(179,172,163,0.2)' : 'rgba(176,13,106,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', filter: isBanned ? 'grayscale(100%)' : 'none', opacity: isBanned ? 0.5 : 1 }}>{u.emoji || '🙂'}</div>
                     <div>
-                      <p style={{
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontWeight: 700, color: '#322e28',
-                        textDecoration: isBanned ? 'line-through' : 'none',
-                        opacity: isBanned ? 0.5 : 1,
-                      }}>{u.name}</p>
-                      <p style={{ fontSize: '0.75rem', color: '#7b766e' }}>UID: {u.uid}</p>
+                      <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#322e28', textDecoration: isBanned ? 'line-through' : 'none', opacity: isBanned ? 0.5 : 1 }}>{u.anonymousName || 'Anonymous'}</p>
+                      <p style={{ fontSize: '0.75rem', color: '#7b766e' }}>{u.branch || 'Student'} • {u.year || 'Unknown year'}</p>
                     </div>
                   </div>
 
-                  {/* Joined */}
-                  <p style={{
-                    fontSize: '0.8125rem', fontWeight: 500, color: '#5f5b53',
-                    opacity: isBanned ? 0.5 : 1,
-                  }}>{u.joined}</p>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#5f5b53', opacity: isBanned ? 0.5 : 1 }}>{formatDate(u.createdAt)}</p>
 
-                  {/* Posts */}
-                  <p style={{
-                    fontSize: '0.875rem', fontWeight: 700, color: '#322e28',
-                    textAlign: 'center', opacity: isBanned ? 0.5 : 1,
-                  }}>{u.posts}</p>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#322e28', textAlign: 'center', opacity: isBanned ? 0.5 : 1 }}>{u.postCount || 0}</p>
 
-                  {/* Reports */}
-                  <p style={{
-                    fontSize: '0.875rem', fontWeight: 700,
-                    textAlign: 'center',
-                    color: u.reports > 5 ? '#b41340' : u.reports > 0 ? '#322e28' : '#322e28',
-                  }}>{u.reports}</p>
+                  <p style={{ fontSize: '0.875rem', fontWeight: 700, textAlign: 'center', color: (u.reportCount || 0) > 5 ? '#b41340' : '#322e28' }}>{u.reportCount || 0}</p>
 
-                  {/* Status */}
                   <div>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
-                      padding: '0.25rem 0.75rem', borderRadius: 9999,
-                      fontSize: '0.75rem', fontWeight: 700,
-                      background: isBanned ? '#e4dccf' : 'rgba(34,197,94,0.08)',
-                      color: isBanned ? '#5f5b53' : '#22c55e',
-                    }}>
-                      <span style={{
-                        width: 6, height: 6, borderRadius: '50%',
-                        background: isBanned ? '#5f5b53' : '#22c55e',
-                      }} />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: 9999, fontSize: '0.75rem', fontWeight: 700, background: isBanned ? '#e4dccf' : 'rgba(34,197,94,0.08)', color: isBanned ? '#5f5b53' : '#22c55e' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: isBanned ? '#5f5b53' : '#22c55e' }} />
                       {isBanned ? 'Banned' : 'Active'}
                     </span>
                   </div>
 
-                  {/* Actions */}
-                  <div className="user-actions" style={{
-                    display: 'flex', justifyContent: 'flex-end', gap: '0.5rem',
-                    opacity: 0, transition: 'opacity 0.2s',
-                  }}>
+                  <div className="user-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', opacity: 0, transition: 'opacity 0.2s' }}>
                     {isBanned ? (
-                      <button onClick={() => handleUnban(u.id)} style={{
-                        padding: '0.5rem 1rem', borderRadius: 9999,
-                        background: '#ffc69f', color: '#723800',
-                        border: 'none', fontWeight: 700, fontSize: '0.75rem',
-                        cursor: 'pointer',
-                      }}>Unban</button>
+                      <button onClick={() => handleUnban(u._id)} style={{ padding: '0.5rem 1rem', borderRadius: 9999, background: '#ffc69f', color: '#723800', border: 'none', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}>Unban</button>
                     ) : (
-                      <button onClick={() => setConfirmModal(u)} style={{
-                        padding: '0.5rem', borderRadius: '50%',
-                        background: 'none', border: 'none',
-                        cursor: 'pointer', color: '#b41340',
-                        display: 'flex', transition: 'background 0.2s',
-                      }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(180,19,64,0.08)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
+                      <button onClick={() => setConfirmModal(u)} style={{ padding: '0.5rem', borderRadius: '50%', background: 'none', border: 'none', cursor: 'pointer', color: '#b41340', display: 'flex' }}>
                         <span className="material-symbols-outlined" style={{ fontSize: 20 }}>block</span>
                       </button>
                     )}
@@ -332,77 +232,28 @@ export default function AdminUsersPage() {
         </div>
       </main>
 
-      {/* Ban Confirmation Modal */}
       {confirmModal && (
-        <div
-          onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(null) }}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            background: 'rgba(15,12,8,0.5)',
-            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '1rem',
-          }}
-        >
-          <div onClick={(e) => e.stopPropagation()} style={{
-            background: '#ffffff', borderRadius: '2rem',
-            padding: '2.5rem', maxWidth: 420, width: '100%',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.15)',
-            animation: 'modalIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              background: 'rgba(180,19,64,0.08)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: '1.5rem',
-            }}>
+        <div onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(null) }} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(15,12,8,0.5)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#ffffff', borderRadius: '2rem', padding: '2.5rem', maxWidth: 420, width: '100%', boxShadow: '0 25px 60px rgba(0,0,0,0.15)', animation: 'modalIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(180,19,64,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#b41340' }}>warning</span>
             </div>
-            <h3 style={{
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
-              fontWeight: 900, fontSize: '1.5rem',
-              color: '#322e28', marginBottom: '0.5rem',
-            }}>
-              Ban {confirmModal.emoji} {confirmModal.name}?
+            <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 900, fontSize: '1.5rem', color: '#322e28', marginBottom: '0.5rem' }}>
+              Ban {confirmModal.anonymousName || 'this user'}?
             </h3>
-            <p style={{
-              color: '#5f5b53', lineHeight: 1.6, marginBottom: '2rem',
-              fontSize: '0.9375rem',
-            }}>
-              This will revoke all access for UID: {confirmModal.uid}. They will no longer be able to post or interact with campus threads.
+            <p style={{ color: '#5f5b53', lineHeight: 1.6, marginBottom: '2rem', fontSize: '0.9375rem' }}>
+              This will revoke their access. They will no longer be able to post or interact with campus threads.
             </p>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setConfirmModal(null)} style={{
-                flex: 1, padding: '1rem', borderRadius: 9999,
-                background: '#efe7dc', color: '#5f5b53',
-                border: 'none', fontWeight: 700, fontSize: '0.9375rem',
-                cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif",
-              }}>Cancel</button>
-              <button onClick={() => handleBan(confirmModal.id)} style={{
-                flex: 1, padding: '1rem', borderRadius: 9999,
-                background: '#b41340', color: '#ffffff',
-                border: 'none', fontWeight: 700, fontSize: '0.9375rem',
-                cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif",
-                boxShadow: '0 8px 24px rgba(180,19,64,0.2)',
-              }}>Confirm Ban</button>
+              <button onClick={() => setConfirmModal(null)} style={{ flex: 1, padding: '1rem', borderRadius: 9999, background: '#efe7dc', color: '#5f5b53', border: 'none', fontWeight: 700, fontSize: '0.9375rem', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Cancel</button>
+              <button onClick={() => handleBan(confirmModal._id)} style={{ flex: 1, padding: '1rem', borderRadius: 9999, background: '#b41340', color: '#ffffff', border: 'none', fontWeight: 700, fontSize: '0.9375rem', cursor: 'pointer', fontFamily: "'Plus Jakarta Sans', sans-serif", boxShadow: '0 8px 24px rgba(180,19,64,0.2)' }}>Confirm Ban</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: '2rem', left: '50%',
-          transform: 'translateX(-50%)',
-          background: '#322e28', color: '#ffffff',
-          padding: '0.875rem 2rem', borderRadius: 9999,
-          fontFamily: "'Plus Jakarta Sans', sans-serif",
-          fontWeight: 700, fontSize: '0.875rem', zIndex: 200,
-          display: 'flex', alignItems: 'center', gap: '0.5rem',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
-          animation: 'toastIn 0.3s ease',
-        }}>
+        <div style={{ position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', background: '#322e28', color: '#ffffff', padding: '0.875rem 2rem', borderRadius: 9999, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '0.875rem', zIndex: 200, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', animation: 'toastIn 0.3s ease' }}>
           <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#22c55e' }}>check_circle</span>
           {toast}
         </div>

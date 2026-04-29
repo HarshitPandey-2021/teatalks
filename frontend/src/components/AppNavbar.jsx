@@ -7,17 +7,10 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import SearchDropdown from './SearchDropdown'
+import NotificationBell from './NotificationBell'
+import api from '@/lib/axios'
 
-const TRENDING_TAGS = ['DBMS', 'MessFood', 'WiFi', 'CampusVibes', 'HostelLife', 'Exams', 'Placements', 'HostelProblems']
-const ALL_POSTS = [
-  { _id: '1', anonymousEmoji: '🦊', anonymousName: 'Silent Fox', category: 'Academic', text: "Does anyone have Sharma sir's DBMS notes? Unit 4 specifically. Exam in 3 days 😭", tags: ['DBMS', 'AcademicStress'], score: 342, commentCount: 56 },
-  { _id: '2', anonymousEmoji: '🐼', anonymousName: 'Sleepy Panda', category: 'Hostel', text: 'The mess food today was surprisingly... edible? Like, the paneer actually felt like paneer.', tags: ['MessFood', 'HostelLife'], score: 1200, commentCount: 89 },
-  { _id: '3', anonymousEmoji: '🦄', anonymousName: 'Glitter Uni', category: 'Reviews', text: 'The new coffee shop near the main gate is a total vibe. ☕️ Cold brew is 10/10.', tags: ['CafeReview', 'CampusVibes'], score: 854, commentCount: 23 },
-  { _id: '4', anonymousEmoji: '🦉', anonymousName: 'Night Owl', category: 'Rants', text: "Why does the WiFi in Hostel Block C work at 3 AM but dies during classes? 📡💀", tags: ['WiFi', 'HostelProblems'], score: 567, commentCount: 34 },
-  { _id: '5', anonymousEmoji: '🐸', anonymousName: 'Chilled Frog', category: 'General', text: 'Unpopular opinion: The campus at 6 AM is genuinely beautiful. 🌄', tags: ['CampusLife', 'MorningVibes'], score: 923, commentCount: 41 },
-  { _id: '6', anonymousEmoji: '🐝', anonymousName: 'Busy Bee', category: 'Academic', text: 'Placement cell just dropped intern opportunities for pre-final years.', tags: ['Placements', 'Internships'], score: 1456, commentCount: 112 },
-  { _id: '7', anonymousEmoji: '🐉', anonymousName: 'Dragon Anon', category: 'Rants', text: "Someone in my wing plays guitar at 2 AM every single night. 💀🎸", tags: ['HostelLife', 'Rants'], score: 789, commentCount: 67 },
-]
+const DEFAULT_TRENDING_TAGS = ['DBMS', 'MessFood', 'WiFi', 'CampusVibes', 'HostelLife', 'Exams', 'Placements', 'HostelProblems']
 const CAT_STYLES = {
   Academic: { bg: 'rgba(176,13,106,0.06)', color: '#b00d6a' },
   Hostel: { bg: 'rgba(154,52,18,0.06)', color: '#9a3412' },
@@ -31,7 +24,7 @@ function fmt(n) {
 }
 
 /* ─── Full-screen mobile search ─── */
-function MobileSearch({ onClose }) {
+function MobileSearch({ onClose, posts, trendingTags }) {
   const [query, setQuery] = useState('')
   const inputRef = useRef(null)
   const router = useRouter()
@@ -51,18 +44,18 @@ function MobileSearch({ onClose }) {
   const results = useMemo(() => {
     if (!query.trim()) return []
     const q = query.toLowerCase().trim()
-    return ALL_POSTS.filter(p =>
+    return posts.filter(p =>
       p.text.toLowerCase().includes(q) ||
-      p.tags.some(t => t.toLowerCase().includes(q)) ||
+      (p.tags || []).some(t => t.toLowerCase().includes(q)) ||
       p.anonymousName.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q)
     ).slice(0, 8)
-  }, [query])
+  }, [query, posts])
 
   const matchingTags = useMemo(() => {
     if (!query.trim()) return []
-    return TRENDING_TAGS.filter(t => t.toLowerCase().includes(query.toLowerCase().trim())).slice(0, 5)
-  }, [query])
+    return trendingTags.filter(t => t.toLowerCase().includes(query.toLowerCase().trim())).slice(0, 5)
+  }, [query, trendingTags])
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -120,7 +113,7 @@ function MobileSearch({ onClose }) {
               display: 'flex', alignItems: 'center', gap: '0.375rem',
             }}><span style={{ fontSize: '0.6875rem' }}>🔥</span> Trending on campus</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-              {TRENDING_TAGS.map(tag => (
+              {trendingTags.map(tag => (
                 <button key={tag} onClick={() => setQuery(tag)} style={{
                   padding: '0.4375rem 0.875rem', borderRadius: 8,
                   background: 'rgba(248,240,229,0.55)', border: '1px solid rgba(211,200,185,0.2)',
@@ -198,7 +191,7 @@ function MobileSearch({ onClose }) {
 }
 
 /* ─── Desktop inline search with dropdown ─── */
-function DesktopSearchBar() {
+function DesktopSearchBar({ posts, trendingTags }) {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
   const inputRef = useRef(null)
@@ -262,6 +255,8 @@ function DesktopSearchBar() {
       <AnimatePresence>
         {isOpen && (
           <SearchDropdown query={query}
+            posts={posts}
+            trendingTags={trendingTags}
             onTagClick={(tag) => { setQuery(tag); inputRef.current?.focus() }}
             onClose={() => { setIsOpen(false); setQuery(''); inputRef.current?.blur() }} />
         )}
@@ -306,7 +301,7 @@ function MobileProfileDropdown({ user, onClose, onLogout }) {
           <p style={{ fontFamily: "'Plus Jakarta Sans'", fontWeight: 700, fontSize: '0.8125rem',
             color: '#322e28', lineHeight: 1.2, margin: 0 }}>{user?.anonymousName || 'Anonymous'}</p>
           <p style={{ fontSize: '0.625rem', color: '#b3aca3', fontWeight: 500, margin: 0, marginTop: 1 }}>
-            {user?.branch || 'CSE'} • {user?.year || '3rd Year'}
+            {user?.branch || 'CSE'} • {user?.year || '1st Year'}
           </p>
         </div>
       </div>
@@ -405,6 +400,8 @@ function LogoutModal({ onCancel, onConfirm, streak }) {
    ═══════════════════════════════════ */
 export default function AppNavbar() {
   const { user, logout } = useAuth()
+  const [posts, setPosts] = useState([])
+  const [logoutStats, setLogoutStats] = useState({ myPosts: 0 })
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
@@ -415,6 +412,41 @@ export default function AppNavbar() {
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
+  }, [])
+
+  const trendingTags = useMemo(() => {
+    const counts = new Map()
+    posts.forEach((post) => {
+      const tags = Array.isArray(post.tags) ? post.tags : []
+      tags.forEach((tag) => {
+        const key = String(tag || '').trim()
+        if (!key) return
+        counts.set(key, (counts.get(key) || 0) + 1)
+      })
+    })
+
+    const dynamic = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([tag]) => tag)
+
+    return dynamic.length > 0 ? dynamic : DEFAULT_TRENDING_TAGS
+  }, [posts])
+
+  useEffect(() => {
+    const fetchNavData = async () => {
+      try {
+        const [{ data: postsData }, { data: myPostsData }] = await Promise.all([
+          api.get('/posts?limit=100'),
+          api.get('/users/my-posts'),
+        ])
+        setPosts(Array.isArray(postsData?.posts) ? postsData.posts : [])
+        setLogoutStats({ myPosts: Array.isArray(myPostsData?.posts) ? myPostsData.posts.length : 0 })
+      } catch (error) {
+        setPosts([])
+      }
+    }
+    fetchNavData()
   }, [])
 
   const handleLogout = useCallback(() => setShowLogoutModal(true), [])
@@ -493,6 +525,7 @@ export default function AppNavbar() {
         /* Right side */
         .nav-right {
           display: flex; align-items: center; gap: 0.125rem; flex-shrink: 0;
+          position: relative;
         }
 
         .nav-icon-btn {
@@ -588,15 +621,12 @@ export default function AppNavbar() {
             </div>
 
             {/* Desktop: inline search with dropdown */}
-            <DesktopSearchBar />
+            <DesktopSearchBar posts={posts} trendingTags={trendingTags} />
           </div>
 
           {/* ── RIGHT: Actions ── */}
           <div className="nav-right">
-            <button className="nav-icon-btn" aria-label="Notifications">
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>notifications</span>
-              <span className="nav-notif-dot" />
-            </button>
+            <NotificationBell />
 
             <div className="nav-divider" />
 
@@ -638,14 +668,14 @@ export default function AppNavbar() {
 
       {/* Full-screen mobile search */}
       <AnimatePresence>
-        {mobileSearchOpen && <MobileSearch onClose={() => setMobileSearchOpen(false)} />}
+        {mobileSearchOpen && <MobileSearch posts={posts} trendingTags={trendingTags} onClose={() => setMobileSearchOpen(false)} />}
       </AnimatePresence>
 
       {/* Logout confirmation modal */}
       <AnimatePresence>
         {showLogoutModal && (
           <LogoutModal
-            streak={7}
+            streak={logoutStats.myPosts}
             onCancel={() => setShowLogoutModal(false)}
             onConfirm={confirmLogout}
           />

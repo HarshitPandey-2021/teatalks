@@ -1,158 +1,177 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useMemo, useCallback, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
+import api from '@/lib/axios'
 
 const AuthContext = createContext(null)
+const AUTH_CHANGE_EVENT = 'teatalks-auth-change'
+let cachedUserSnapshot = null
+let cachedUserStorageValue = null
+let cachedTokenStorageValue = null
 
-// ── Anonymous Identity Generator ──
-const ADJECTIVES = [
-  'Silent', 'Curious', 'Shadow', 'Midnight', 'Cool',
-  'Lone', 'Blue', 'Brave', 'Wise', 'Swift',
-  'Chill', 'Mystic', 'Cosmic', 'Neon', 'Zen',
-]
-const ANIMALS = [
-  'Fox', 'Panda', 'Owl', 'Wolf', 'Cat',
-  'Penguin', 'Tiger', 'Eagle', 'Dolphin', 'Koala',
-  'Raccoon', 'Falcon', 'Otter', 'Lynx', 'Raven',
-]
-const EMOJIS = [
-  '🦊', '🐼', '🦉', '🐺', '🐱',
-  '🐧', '🐯', '🦅', '🐬', '🐨',
-  '🦝', '🦅', '🦦', '🐱', '🐦‍⬛',
-]
+function readStoredUser() {
+  if (typeof window === 'undefined') {
+    return null
+  }
 
-function generateIdentity() {
-  const i = Math.floor(Math.random() * ADJECTIVES.length)
-  const j = Math.floor(Math.random() * ANIMALS.length)
-  return {
-    anonymousName: `${ADJECTIVES[i]} ${ANIMALS[j]}`,
-    anonymousEmoji: EMOJIS[j],
+  try {
+    const savedUser = sessionStorage.getItem('teatalks_user')
+    const savedToken = sessionStorage.getItem('teatalks_token')
+
+    if (!savedUser || !savedToken) {
+      cachedUserSnapshot = null
+      cachedUserStorageValue = savedUser
+      cachedTokenStorageValue = savedToken
+      return null
+    }
+
+    if (savedUser === cachedUserStorageValue && savedToken === cachedTokenStorageValue) {
+      return cachedUserSnapshot
+    }
+
+    cachedUserSnapshot = JSON.parse(savedUser)
+    cachedUserStorageValue = savedUser
+    cachedTokenStorageValue = savedToken
+    return cachedUserSnapshot
+  } catch {
+    sessionStorage.removeItem('teatalks_user')
+    sessionStorage.removeItem('teatalks_token')
+    cachedUserSnapshot = null
+    cachedUserStorageValue = null
+    cachedTokenStorageValue = null
+    return null
   }
 }
 
+function emitAuthChange() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_CHANGE_EVENT))
+  }
+}
+
+function subscribeToAuthChange(callback) {
+  if (typeof window === 'undefined') {
+    return () => {}
+  }
+
+  window.addEventListener('storage', callback)
+  window.addEventListener(AUTH_CHANGE_EVENT, callback)
+
+  return () => {
+    window.removeEventListener('storage', callback)
+    window.removeEventListener(AUTH_CHANGE_EVENT, callback)
+  }
+}
+
+function subscribeToClientReady() {
+  return () => {}
+}
+
+function getClientReadySnapshot() {
+  return true
+}
+
+function getServerReadySnapshot() {
+  return false
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const isClient = useSyncExternalStore(
+    subscribeToClientReady,
+    getClientReadySnapshot,
+    getServerReadySnapshot
+  )
+  const user = useSyncExternalStore(
+    subscribeToAuthChange,
+    readStoredUser,
+    () => null
+  )
+  const loading = !isClient
   const router = useRouter()
 
-  // ── Restore session on mount ──
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('teatalks_user')
-      const savedToken = localStorage.getItem('teatalks_token')
-      if (savedUser && savedToken) {
-        setUser(JSON.parse(savedUser))
-      }
-    } catch {
-      localStorage.removeItem('teatalks_user')
-      localStorage.removeItem('teatalks_token')
-    }
-    setLoading(false)
+  const persistSession = useCallback((token, nextUser) => {
+    sessionStorage.setItem('teatalks_token', token)
+    sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+    emitAuthChange()
   }, [])
 
-  // ── LOGIN ──
+  const refreshUser = useCallback(async () => {
+    const token = typeof window !== 'undefined' ? sessionStorage.getItem('teatalks_token') : null
+    if (!token) return null
+    const res = await api.get('/users/me')
+    const nextUser = res.data?.user
+    if (nextUser) {
+      sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+      emitAuthChange()
+    }
+    return nextUser || null
+  }, [])
+
   const login = useCallback(async (email, password) => {
-    /*
-    ┌─────────────────────────────────────────────────┐
-    │  REAL API — uncomment when Somesh's backend is  │
-    │  running on localhost:5000                       │
-    │                                                 │
-    │  import api from '@/lib/axios'                  │
-    │                                                 │
-    │  const res = await api.post('/auth/login', {    │
-    │    email, password                              │
-    │  })                                             │
-    │  const { token, user } = res.data               │
-    │  localStorage.setItem('teatalks_token', token)  │
-    │  localStorage.setItem('teatalks_user',          │
-    │    JSON.stringify(user))                         │
-    │  setUser(user)                                  │
-    │  router.push('/feed')                           │
-    │  return user                                    │
-    └─────────────────────────────────────────────────┘
-    */
+    const res = await api.post('/users/login', { email, password })
+    const { token, user } = res.data
 
-    // ── FAKE AUTH (remove when backend is ready) ──
-    await new Promise((r) => setTimeout(r, 1000))
+    persistSession(token, user)
+    router.push(user.role === 'admin' ? '/admin' : '/feed')
+    return user
+  }, [persistSession, router])
 
-    // Simulate: any email/password works
-    const identity = generateIdentity()
-       const fakeUser = {
-      _id: 'user_' + Date.now(),
-      email,
-      ...identity,
-      role: email.includes('admin') ? 'admin' : 'user',
-      branch: 'CSE',
-      year: '3rd Year',
-    }
-    const fakeToken = 'jwt_' + Date.now()
-
-    localStorage.setItem('teatalks_token', fakeToken)
-    localStorage.setItem('teatalks_user', JSON.stringify(fakeUser))
-    setUser(fakeUser)
-    router.push('/feed')
-    return fakeUser
-  }, [router])
-
-  // ── SIGNUP ──
-  const signup = useCallback(async (formData) => {
-    /*
-    ┌─────────────────────────────────────────────────┐
-    │  REAL API — uncomment when backend is ready     │
-    │                                                 │
-    │  const res = await api.post('/auth/signup', {   │
-    │    name: formData.name,                         │
-    │    email: formData.email,                       │
-    │    password: formData.password,                 │
-    │    branch: formData.branch,                     │
-    │    year: formData.year,                         │
-    │  })                                             │
-    │  const { token, user } = res.data               │
-    │  ... same as login ...                          │
-    └─────────────────────────────────────────────────┘
-    */
-
-    // ── FAKE AUTH ──
-    await new Promise((r) => setTimeout(r, 1200))
-
-    const identity = generateIdentity()
-    const fakeUser = {
-      _id: 'user_' + Date.now(),
+  const signup = useCallback(async (formData, options = {}) => {
+    const res = await api.post('/users/register', {
+      campusName: formData.college,
       email: formData.email,
-      ...identity,
-      role: 'user',
-      branch: formData.branch || '',
-      year: formData.year || '',
+      otp: formData.otp,
+    })
+    const { token, user } = res.data
+
+    persistSession(token, user)
+    if (options.redirect !== false) {
+      router.push('/feed')
     }
-    const fakeToken = 'jwt_' + Date.now()
+    return user
+  }, [persistSession, router])
 
-    localStorage.setItem('teatalks_token', fakeToken)
-    localStorage.setItem('teatalks_user', JSON.stringify(fakeUser))
-    setUser(fakeUser)
-    router.push('/feed')
-    return fakeUser
-  }, [router])
+  const requestSignupOtp = useCallback(async (formData) => {
+    const res = await api.post('/users/register/request-otp', {
+      campusName: formData.college,
+      email: formData.email,
+      password: formData.password,
+    })
+    return res.data
+  }, [])
 
-  // ── LOGOUT ──
   const logout = useCallback(() => {
-    localStorage.removeItem('teatalks_token')
-    localStorage.removeItem('teatalks_user')
-    setUser(null)
+    sessionStorage.removeItem('teatalks_token')
+    sessionStorage.removeItem('teatalks_user')
+    emitAuthChange()
     router.push('/login')
   }, [router])
 
+  const updateProfile = useCallback(async (payload) => {
+    const res = await api.patch('/users/me', payload)
+    const nextUser = res.data?.user
+    if (nextUser) {
+      sessionStorage.setItem('teatalks_user', JSON.stringify(nextUser))
+      emitAuthChange()
+    }
+    return nextUser
+  }, [])
+
+  const value = useMemo(() => ({
+    user,
+    loading,
+    isAuthenticated: !!user,
+    login,
+    signup,
+    requestSignupOtp,
+    logout,
+    updateProfile,
+    refreshUser,
+  }), [user, loading, login, signup, requestSignupOtp, logout, updateProfile, refreshUser])
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        isAuthenticated: !!user,
-        login,
-        signup,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

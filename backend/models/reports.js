@@ -17,7 +17,9 @@ const reportSchema = new mongoose.Schema({
   },
   reason: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 500
   },
   status: {
     type: String,
