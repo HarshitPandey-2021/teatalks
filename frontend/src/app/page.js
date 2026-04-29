@@ -1,189 +1,241 @@
 
 import Image from "next/image";
-
-import SearchBar from "../components/SearchBar";
-import CategoryTabs from "../components/CategoryTabs";
-import EmptyState from "../components/EmptyState";
+import Brewed from "@/components/Brewed";
+import HowItWorks from "@/components/HowItWorks";
+import Testimonial from "@/components/Testimonial";
 
 export default function Home() {
   return (
-    <main>
+    <main style={{ background: "#ffffff" }}>
 
-      {/* HERO SECTION */}
-      <section 
-        className="hero"
-        style={{
-          backgroundImage: "url('/campus.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          position: "relative",
-          borderBottomLeftRadius: "50% 20%",
-          borderBottomRightRadius: "50% 20%",
-          overflow: "hidden",
-          textAlign: "center",
-          padding: "80px 20px",
-        }}
-      >
-        {/* Mascot enlarged */}
-        <Image
-          src="/mascot-1.png"
-          alt="Mascot"
-          width={220}
-          height={220}
+      {/* ================= HERO ================= */}
+      <section style={{ padding: "110px 20px 90px" }}>
+        <div
           style={{
-            position: "absolute",
-            left: "15px",
-            bottom: "0px",
-            zIndex: 2,
-            objectFit: "contain",
-            pointerEvents: "none"
+            maxWidth: "1100px",
+            margin: "0 auto",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "60px",
           }}
-        />
-
-        {/* LIGHTER OVERLAY */}
-        <div 
-          className="hero-overlay"
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: "rgba(255,255,255,0.5)",
-            zIndex: 1
-          }}
-        ></div>
-
-        <div 
-          className="hero-content"
-          style={{ position: "relative", zIndex: 2, display: "inline-block" }}
         >
-          <h1>Your Campus. Your Voice. Zero Judgement</h1>
-          <p style={{ margin: "15px 0" }}>
-            TeaTalks is an anonymous student platform where real
-            campus conversations happen.
-          </p>
-          <button className="btn-primary" style={{ display: "block", margin: "20px auto" }}>
-            Spill the Tea ☕
-          </button>
+          <div style={{ flex: "1 1 420px", textAlign: "center" }}>
+            <h1 style={{ fontSize: "3rem", fontWeight: "900", lineHeight: "1.2" }}>
+              Your Campus. <br />
+              Your Voice. <br />
+              <span
+                style={{
+                  background: "linear-gradient(90deg,#FF4D8D,#FF8C42,#FFD700)",
+                  WebkitBackgroundClip: "text",
+                  color: "transparent",
+                }}
+              >
+                Zero Judgement
+              </span>
+            </h1>
+
+            <p
+              style={{
+                marginTop: "24px",
+                fontSize: "1.05rem",
+                color: "#555",
+                lineHeight: "1.7",
+              }}
+            >
+              A space where unfiltered student voices converge — where thoughts
+              unfold freely and conversations exist without judgement.
+            </p>
+
+            <button
+              style={{
+                marginTop: "25px",
+                padding: "14px 30px",
+                borderRadius: "12px",
+                border: "none",
+                fontWeight: "700",
+                background:
+                  "linear-gradient(120deg,#FF4D8D,#FF8C42,#FFD700)",
+                color: "#fff",
+                boxShadow: "0 10px 25px rgba(255,140,0,0.3)",
+                cursor: "pointer",
+              }}
+            >
+              Spill the Tea ☕
+            </button>
+          </div>
+
+          <div
+            style={{
+              flex: "1 1 320px",
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <Image
+  src="/phone.png"
+  alt="preview"
+  width={260}
+  height={520}
+  style={{
+                borderRadius: "16px",
+                boxShadow: "0 20px 50px rgba(0,0,0,0.12)",
+              }}
+            />
+          </div>
         </div>
       </section>
 
-      <div className="page">
-
-        <div className="mascot-bg"></div>
-
-        {/* SEARCH SECTION */}
-        <section className="section" style={{ padding: "40px 20px" }}>
-          <h2 style={{
-            textAlign: "center",
-            fontSize: "2rem",
-            fontWeight: "700",
-            color: "#FF6EC4",
-            marginBottom: "20px",
-            textShadow: "1px 1px 8px rgba(255,110,196,0.4)"
-          }}>
-            Search Discussions
-          </h2>
-          <SearchBar/>
-        </section>
-
-        {/* CATEGORIES SECTION */}
-        <section className="section" style={{ padding: "40px 20px" }}>
-          <h2 style={{
-            textAlign: "center",
-            fontSize: "2rem",
-            fontWeight: "700",
-            color: "#FF6EC4",
-            marginBottom: "20px",
-            textShadow: "1px 1px 8px rgba(255,110,196,0.4)"
-          }}>
-            Categories
-          </h2>
-          <CategoryTabs/>
-        </section>
-
-        {/* WHY TEATALKS SECTION */}
-        <section className="section" style={{ padding: "50px 20px", background: "rgba(255,255,255,0.03)" }}>
-          <h2 style={{
-            textAlign: "center",
-            fontSize: "2rem",
-            fontWeight: "700",
-            color: "#FF6EC4",
-            marginBottom: "40px",
-            textShadow: "1px 1px 8px rgba(255,110,196,0.4)",
-          }}>
-            Why TeaTalks?
-          </h2>
-
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "25px",
-            justifyItems: "center",
-          }}>
-            {[
-              {
-                title: "Anonymous Posts",
-                desc: "Speak freely, unburden your thoughts, and let the world hear you without labels. Here, your voice is yours alone.",
-                color: "#FFA500" // Orange
-              },
-              {
-                title: "Campus Stories",
-                desc: "Dive into the tapestry of campus life — laughter in the hostels, the silent library whispers, and the tales that classrooms hold.",
-                color: "#FF6EC4" // Magenta
-              },
-              {
-                title: "Professor Reviews",
-                desc: "Gain honest reflections on professors and courses — illuminating the path for fellow students and guiding learning journeys.",
-                color: "#D4AF37" // Brownish Yellow
-              },
-              {
-                title: "Community Voting",
-                desc: "Empower the community to highlight what truly matters. The best stories, advice, and discussions rise to the top organically.",
-                color: "#FF2400" // Scarlet
-              },
-            ].map((card, idx) => (
+      {/* ================= STATS ================= */}
+      <section style={{ padding: "40px 20px" }}>
+        <div
+          style={{
+            maxWidth: "900px",
+            margin: "0 auto",
+            display: "flex",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "20px",
+          }}
+        >
+          {[
+            { num: "10K+", label: "Voices Shared" },
+            { num: "50+", label: "Campuses" },
+            { num: "100K+", label: "Interactions" },
+          ].map((item, i) => (
+            <div
+              key={i}
+              style={{
+                flex: "1 1 200px",
+                textAlign: "center",
+                padding: "20px",
+                borderRadius: "16px",
+                background: "rgba(255,255,255,0.6)",
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
+              }}
+            >
               <div
-                key={idx}
-                className="card"
                 style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.15))",
-                  borderRadius: "20px",
-                  padding: "25px 20px",
-                  width: "100%",
-                  maxWidth: "300px",
-                  boxShadow: `0 8px 25px ${card.color}40`,
-                  textAlign: "center",
-                  cursor: "default",
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                  fontSize: "1.8rem",
+                  fontWeight: "800",
+                  background: "linear-gradient(90deg,#FF4D8D,#FFD700)",
+                  WebkitBackgroundClip: "text",
+                  color: "transparent",
                 }}
               >
-                <h3 style={{
-                  color: card.color,
-                  fontSize: "1.4rem",
-                  fontWeight: "700",
-                  marginBottom: "15px",
-                  textShadow: `1px 1px 6px ${card.color}50`,
-                }}>
-                  {card.title}
-                </h3>
-                <p style={{
-                  fontSize: "1rem",
-                  lineHeight: "1.6",
-                  color: card.color, // DESC same as title now
-                }}>
-                  {card.desc}
-                </p>
+                {item.num}
               </div>
+              <p style={{ color: "#666", fontSize: "0.9rem" }}>
+                {item.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ================= BREWED ================= */}
+      <Brewed />
+
+      {/* ================= HOW IT WORKS ================= */}
+      <HowItWorks />
+
+      {/* ================= TESTIMONIAL ================= */}
+      <Testimonial />
+
+      {/* ================= QUESTIONS (INLINE) ================= */}
+      <section
+        style={{
+          padding: "110px 20px",
+          background: "linear-gradient(180deg,#FFF,#FDF6F0)",
+          textAlign: "center",
+        }}
+      >
+        <div style={{ maxWidth: "900px", margin: "0 auto" }}>
+
+          <h2
+            style={{
+              fontSize: "2.5rem",
+              fontWeight: "900",
+              marginBottom: "10px",
+              background: "linear-gradient(90deg,#FF4D8D,#FF8C42,#FFD700)",
+              WebkitBackgroundClip: "text",
+              color: "transparent",
+            }}
+          >
+            Questions, Answered
+          </h2>
+
+          <p
+            style={{
+              color: "#666",
+              marginBottom: "60px",
+              maxWidth: "600px",
+              marginInline: "auto",
+              lineHeight: "1.7",
+            }}
+          >
+            Everything you might be wondering — thoughtfully clarified.
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            {[
+              {
+                q: "Is TeaTalks really anonymous?",
+                a: "Yes. Your identity is never revealed publicly. The platform is designed for honest expression.",
+              },
+              {
+                q: "Who can see my posts?",
+                a: "Only users within your campus can view and engage with your posts.",
+              },
+              {
+                q: "Can I delete my posts?",
+                a: "Yes, you have full control over your content anytime.",
+              },
+              {
+                q: "What content is allowed?",
+                a: "Respectful and meaningful conversations are encouraged. Harmful content is moderated.",
+              },
+            ].map((item, i) => (
+              <details
+                key={i}
+                style={{
+                  background: "rgba(255,255,255,0.65)",
+                  backdropFilter: "blur(10px)",
+                  borderRadius: "16px",
+                  padding: "16px 18px",
+                  border: "1px solid rgba(255,255,255,0.4)",
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
+                  textAlign: "left",
+                }}
+              >
+                <summary
+                  style={{
+                    fontWeight: "700",
+                    cursor: "pointer",
+                  }}
+                >
+                  {item.q}
+                </summary>
+
+                <p
+                  style={{
+                    marginTop: "10px",
+                    color: "#555",
+                    fontSize: "0.95rem",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  {item.a}
+                </p>
+              </details>
             ))}
           </div>
-        </section>
 
-        {/* EMPTY STATE */}
-        <section className="section">
-          <EmptyState/>
-        </section>
-
-      </div>
+        </div>
+      </section>
 
     </main>
-  )
+  );
 }

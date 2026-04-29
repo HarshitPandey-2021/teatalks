@@ -1,11 +1,9 @@
-
-
 export default function Privacy() {
   return (
     <main
       style={{
         fontFamily: "'Poppins', sans-serif",
-        background: "linear-gradient(160deg, #FFE5B4, #FFD580, #FFB3D9)", // pastel orange → yellow → magenta
+        background: "linear-gradient(160deg, #FFD700, #FFB347, #FFF3B0)", // GOLD → ORANGE → SOFT YELLOW
         minHeight: "100vh",
         paddingBottom: "80px",
       }}
@@ -16,130 +14,138 @@ export default function Privacy() {
           maxWidth: "1100px",
           margin: "0 auto",
           padding: "60px 20px",
-          color: "#1a1a1a",
         }}
       >
 
         <div className="mascot-bg"></div>
 
-        {/* PRIVACY POLICY */}
-        <section className="section" style={{ marginBottom: "50px", textAlign: "center" }}>
-          <h1 style={{
-            fontSize: "2.8rem",
-            fontWeight: "800",
-            color: "#333",
-            marginBottom: "25px",
-            textShadow: "1px 1px 6px rgba(0,0,0,0.1)"
-          }}>
-            Privacy Policy
-          </h1>
+        {/* 🌟 MAIN GLASS CARD */}
+        <div
+          style={{
+            background: "rgba(255,255,255,0.88)",
+            backdropFilter: "blur(10px)",
+            borderRadius: "26px",
+            padding: "50px 30px",
+            boxShadow: "0 18px 45px rgba(0,0,0,0.12)",
+          }}
+        >
 
-          <p style={{
-            fontSize: "1.15rem",
-            lineHeight: "1.8",
-            maxWidth: "800px",
-            margin: "20px auto",
-            color: "#222"
-          }}>
-            At TeaTalks, protecting student privacy is our highest priority. We ensure your
-            interactions, thoughts, and personal data remain secure, confidential, and
-            entirely under your control.
-          </p>
-        </section>
-
-        {/* INFORMATION WE COLLECT */}
-        <section className="section" style={{ marginBottom: "50px", textAlign: "center" }}>
-          <h2 style={{
-            fontSize: "2.4rem",
-            fontWeight: "700",
-            color: "#333",
-            marginBottom: "20px",
-            textShadow: "1px 1px 5px rgba(0,0,0,0.1)"
-          }}>
-            Information We Collect
-          </h2>
-
-          <ul style={{
-            listStyle: "none",
-            padding: 0,
-            maxWidth: "600px",
-            margin: "0 auto",
-            fontSize: "1.1rem",
-            color: "#222",
-          }}>
-            <li style={{
-              background: "rgba(255,255,255,0.4)",
-              borderRadius: "12px",
-              padding: "15px 20px",
-              marginBottom: "10px",
-              boxShadow: "0 6px 15px rgba(0,0,0,0.05)",
+          {/* PRIVACY POLICY */}
+          <section style={{ marginBottom: "50px", textAlign: "center" }}>
+            <h1 style={{
+              fontSize: "2.8rem",
+              fontWeight: "800",
+              marginBottom: "25px",
+              background: "linear-gradient(90deg,#ff8c42,#ffb347,#ffd700)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
             }}>
-              Email for authentication
-            </li>
-            <li style={{
-              background: "rgba(255,255,255,0.4)",
-              borderRadius: "12px",
-              padding: "15px 20px",
-              marginBottom: "10px",
-              boxShadow: "0 6px 15px rgba(0,0,0,0.05)",
+              Privacy Policy
+            </h1>
+
+            <p style={{
+              fontSize: "1.15rem",
+              lineHeight: "1.85",
+              maxWidth: "800px",
+              margin: "20px auto",
+              color: "#374151"
             }}>
-              University name
-            </li>
-          </ul>
-        </section>
+              At TeaTalks, privacy is not treated as a feature — it is a foundation. Every interaction on the platform is designed with the intent to protect, respect, and preserve the individuality of its users. Your thoughts remain yours, your identity stays protected, and your presence is never exposed without your control.
+            </p>
+          </section>
 
-        {/* ANONYMOUS POSTING */}
-        <section className="section" style={{ marginBottom: "50px", textAlign: "center" }}>
-          <h2 style={{
-            fontSize: "2.4rem",
-            fontWeight: "700",
-            color: "#333",
-            marginBottom: "20px",
-            textShadow: "1px 1px 5px rgba(0,0,0,0.1)"
-          }}>
-            Anonymous Posting
-          </h2>
+          {/* INFORMATION */}
+          <section style={{ marginBottom: "50px", textAlign: "center" }}>
+            <h2 style={{
+              fontSize: "2.3rem",
+              fontWeight: "700",
+              marginBottom: "20px",
+              background: "linear-gradient(90deg,#ff8c42,#ffd700)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}>
+              Information We Collect
+            </h2>
 
-          <p style={{
-            fontSize: "1.15rem",
-            lineHeight: "1.8",
-            maxWidth: "750px",
-            margin: "0 auto",
-            color: "#222"
-          }}>
-            All posts on TeaTalks appear anonymously. Your identity is never revealed publicly,
-            ensuring complete freedom to express opinions and share experiences without concern.
-          </p>
-        </section>
+            <ul style={{
+              listStyle: "none",
+              padding: 0,
+              maxWidth: "600px",
+              margin: "0 auto",
+              fontSize: "1.1rem",
+              color: "#374151",
+            }}>
+              {[
+                "Email for authentication",
+                "University name"
+              ].map((item, i) => (
+                <li
+                  key={i}
+                  style={{
+                    background: "rgba(255,255,255,0.6)",
+                    borderRadius: "14px",
+                    padding: "15px 20px",
+                    marginBottom: "12px",
+                    boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+                    transition: "0.3s ease",
+                  }}
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        {/* DATA PROTECTION */}
-        <section className="section" style={{ marginBottom: "50px", textAlign: "center" }}>
-          <h2 style={{
-            fontSize: "2.4rem",
-            fontWeight: "700",
-            color: "#333",
-            marginBottom: "20px",
-            textShadow: "1px 1px 5px rgba(0,0,0,0.1)"
-          }}>
-            Data Protection
-          </h2>
+          {/* ANONYMOUS */}
+          <section style={{ marginBottom: "50px", textAlign: "center" }}>
+            <h2 style={{
+              fontSize: "2.3rem",
+              fontWeight: "700",
+              marginBottom: "20px",
+              background: "linear-gradient(90deg,#ff8c42,#ffd700)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}>
+              Anonymous Posting
+            </h2>
 
-          <p style={{
-            fontSize: "1.15rem",
-            lineHeight: "1.8",
-            maxWidth: "750px",
-            margin: "0 auto",
-            color: "#222"
-          }}>
-            TeaTalks never sells, shares, or distributes user data to third parties.
-            Our platform adheres to strict privacy standards, keeping your information safe,
-            secure, and confidential at all times.
-          </p>
-        </section>
+            <p style={{
+              fontSize: "1.15rem",
+              lineHeight: "1.85",
+              maxWidth: "750px",
+              margin: "0 auto",
+              color: "#374151"
+            }}>
+              All posts on TeaTalks are presented without identity. This ensures that expression remains uninfluenced by perception, allowing users to speak freely, reflect honestly, and share experiences without hesitation or external pressure.
+            </p>
+          </section>
 
+          {/* DATA */}
+          <section style={{ textAlign: "center" }}>
+            <h2 style={{
+              fontSize: "2.3rem",
+              fontWeight: "700",
+              marginBottom: "20px",
+              background: "linear-gradient(90deg,#ff8c42,#ffd700)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}>
+              Data Protection
+            </h2>
+
+            <p style={{
+              fontSize: "1.15rem",
+              lineHeight: "1.85",
+              maxWidth: "750px",
+              margin: "0 auto",
+              color: "#374151"
+            }}>
+              TeaTalks does not sell, distribute, or disclose user data to third parties. Every measure is taken to ensure your information remains secure, encrypted, and handled with the highest level of responsibility and care.
+            </p>
+          </section>
+
+        </div>
       </div>
-
-      
     </main>
   );
 }
