@@ -167,10 +167,47 @@ Team members will review and merge it.
 | Frontend | Next.js 14, React, Tailwind CSS     |
 | Backend  | Node.js, Express.js                 |
 | Database | MongoDB Atlas                       |
-| AI       | Google Perspective API              |
+| AI       | Featherless (toxicity moderation)   |
 | Hosting  | Vercel (frontend), Render (backend) |
 
 ---
+
+## 🌐 Production Deploy (Vercel + Render)
+
+### Frontend (Vercel)
+
+Set this environment variable in your Vercel project:
+
+- `NEXT_PUBLIC_API_URL=https://teatalks.onrender.com/api`
+
+This matches the backend route prefix (`/api/...`). The frontend reads it in `frontend/src/lib/axios.js`.
+
+### Backend (Render)
+
+#### Required env vars
+
+- `NODE_ENV=production`
+- `MONGO_URI=...`
+- `JWT_SECRET=...`
+
+Optional but recommended:
+
+- `PASSWORD_RESET_PEPPER=...`
+
+#### CORS
+
+Backend CORS is allowlisted. You can override origins on Render via:
+
+- `CORS_ORIGINS=https://teatalks-six.vercel.app,http://localhost:3000`
+
+If you don’t set it, it defaults to `https://teatalks-six.vercel.app` and `http://localhost:3000`.
+
+#### Health check
+
+Backend exposes:
+
+- `GET /health` (returns 200 when Mongo is connected, otherwise 503)
+
 
 ## ⚡ First Tasks for Each Member
 

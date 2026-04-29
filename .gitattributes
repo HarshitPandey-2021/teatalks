@@ -1,0 +1,3 @@
+# Treat config files as text (avoid "binary" diffs on Windows)
+.gitignore text eol=lf
+
