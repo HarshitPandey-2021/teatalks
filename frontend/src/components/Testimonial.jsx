@@ -18,7 +18,7 @@ export default function Testimonial() {
       name: "Somesh Pandey",
       role: "Brewmaster",
       msg: "Not everything needs to be understood… some things need to be said.",
-      img: "/avatar2.png",
+      img: "/avatar2.jpg",
       gradient: "linear-gradient(135deg, #f6d365, #fda085)",
     },
     {
@@ -32,7 +32,7 @@ export default function Testimonial() {
       name: "Harshit Pandey",
       role: "Brewmaster",
       msg: "Some thoughts find their way out eventually.",
-      img: "/avatar4.png",
+      img: "/avatar4.jpg",
       gradient: "linear-gradient(135deg, #fccb90, #d57eeb)",
     },
   ];

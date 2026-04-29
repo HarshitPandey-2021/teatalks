@@ -2,52 +2,62 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  const linkClass = (path) =>
+    `nav-link ${pathname === path ? "text-pink-500 font-semibold" : ""}`;
 
   return (
     <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/70 border-b border-gray-200">
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 flex items-center justify-between h-16">
+      {/* ✅ Increased side padding */}
+      <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 flex items-center justify-between h-16">
 
         {/* LOGO */}
-        <div className="text-xl font-bold text-gray-800">
-          ☕ TeaTalks
+        <div className="flex items-center gap-2 pl-2 text-xl font-bold text-gray-800">
+          <span className="text-2xl">☕</span>
+          <span>TeaTalks</span>
         </div>
 
-        {/* DESKTOP NAV */}
+        {/* DESKTOP */}
         <div className="hidden md:flex items-center gap-8">
 
-          <Link href="/" className="nav-link">Home</Link>
-          <Link href="/about" className="nav-link">About</Link>
-          <Link href="/privacy" className="nav-link">Privacy</Link>
-          <Link href="/terms" className="nav-link">Terms</Link>
+          <Link href="/" className={linkClass("/")}>Home</Link>
+          <Link href="/about" className={linkClass("/about")}>About</Link>
+          <Link href="/privacy" className={linkClass("/privacy")}>Privacy</Link>
+          <Link href="/terms" className={linkClass("/terms")}>Terms</Link>
 
-          {/* AUTH */}
-          <Link href="/login">
-            <button className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition">
-              Log In
-            </button>
-          </Link>
+          <div className="flex items-center gap-3 ml-2">
+            <Link href="/login">
+              <button className="h-10 px-6 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition">
+                Log In
+              </button>
+            </Link>
 
-          <Link href="/signup">
-            <button className="px-5 py-2 rounded-lg text-sm font-semibold text-white 
-              bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400 
-              shadow-md hover:scale-105 transition">
-              Sign Up
-            </button>
-          </Link>
+            <Link href="/signup">
+              <button className="h-10 px-7 rounded-lg text-sm font-semibold text-white 
+                bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400 
+                shadow-md hover:scale-105 transition">
+                Sign Up
+              </button>
+            </Link>
+          </div>
 
         </div>
 
-        {/* MOBILE MENU BUTTON */}
-        <button
-          className="md:hidden text-2xl"
-          onClick={() => setOpen(!open)}
-        >
-          ☰
-        </button>
+        {/* ✅ FIXED HAMBURGER SPACING */}
+        <div className="md:hidden pr-3">
+          <button
+            className="text-2xl"
+            onClick={() => setOpen(!open)}
+          >
+            ☰
+          </button>
+        </div>
 
       </div>
 
@@ -59,35 +69,24 @@ export default function NavBar() {
       >
         <div className="px-6 pb-6 pt-2 flex flex-col gap-4 bg-white/90 backdrop-blur-md">
 
-          <Link href="/" onClick={() => setOpen(false)} className="mobile-link">
-            Home
-          </Link>
-          <Link href="/about" onClick={() => setOpen(false)} className="mobile-link">
-            About
-          </Link>
-          <Link href="/privacy" onClick={() => setOpen(false)} className="mobile-link">
-            Privacy
-          </Link>
-          <Link href="/terms" onClick={() => setOpen(false)} className="mobile-link">
-            Terms
-          </Link>
+          <Link href="/" onClick={() => setOpen(false)} className={linkClass("/")}>Home</Link>
+          <Link href="/about" onClick={() => setOpen(false)} className={linkClass("/about")}>About</Link>
+          <Link href="/privacy" onClick={() => setOpen(false)} className={linkClass("/privacy")}>Privacy</Link>
+          <Link href="/terms" onClick={() => setOpen(false)} className={linkClass("/terms")}>Terms</Link>
 
           <div className="flex flex-col gap-3 mt-2">
-
             <Link href="/login" onClick={() => setOpen(false)}>
-              <button className="w-full py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition">
+              <button className="w-full h-11 px-6 rounded-lg border border-gray-300">
                 Log In
               </button>
             </Link>
 
             <Link href="/signup" onClick={() => setOpen(false)}>
-              <button className="w-full py-2 rounded-lg text-sm font-semibold text-white 
-                bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400 
-                shadow-md">
+              <button className="w-full h-11 px-7 rounded-lg text-white 
+                bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400">
                 Sign Up
               </button>
             </Link>
-
           </div>
 
         </div>
