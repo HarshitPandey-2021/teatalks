@@ -26,6 +26,10 @@ export default function AdminFlaggedPage() {
   const [loadingData, setLoadingData] = useState(true)
 
   useEffect(() => {
+    document.title = "Flagged Content | TeaTalks Admin"
+  }, [])
+
+  useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
     if (!authLoading && isAuthenticated && user?.role !== 'admin') router.push('/feed')
   }, [authLoading, isAuthenticated, user, router])
@@ -99,17 +103,20 @@ export default function AdminFlaggedPage() {
 
   if (authLoading || !isAuthenticated || user?.role !== 'admin' || loadingData) {
     return (
-      <div style={{ minHeight: '100vh', background: '#fdf5eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid #eae1d5', borderTopColor: '#b00d6a', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+      <div style={{ minHeight: '100vh', background: '#fefcf9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'relative' }}>
+          <div style={{ width: 56, height: 56, border: '3px solid rgba(234,225,213,0.3)', borderTopColor: '#b00d6a', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ position: 'absolute', inset: 10, border: '2px solid rgba(234,225,213,0.2)', borderBottomColor: '#fb923c', borderRadius: '50%', animation: 'spin 1.2s linear infinite reverse' }} />
+        </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     )
   }
 
   const severityStyle = (s) => {
-    if (s === 'critical') return { bg: 'rgba(180,19,64,0.08)', color: '#b41340', border: '#b41340', label: 'Critical' }
-    if (s === 'medium') return { bg: 'rgba(144,72,0,0.08)', color: '#904800', border: 'rgba(144,72,0,0.3)', label: 'Medium' }
-    return { bg: 'rgba(179,172,163,0.1)', color: '#904800', border: 'rgba(179,172,163,0.3)', label: 'Low' }
+    if (s === 'critical') return { bg: 'rgba(180,19,64,0.08)', color: '#b41340', border: '#b41340', label: 'Critical', gradient: 'linear-gradient(135deg, #b41340, #dc2626)' }
+    if (s === 'medium') return { bg: 'rgba(234,108,0,0.08)', color: '#ea6c00', border: '#ea6c00', label: 'Medium', gradient: 'linear-gradient(135deg, #fb923c, #ffc69f)' }
+    return { bg: 'rgba(179,172,163,0.1)', color: '#9b958c', border: '#c8c1b8', label: 'Low', gradient: 'linear-gradient(135deg, #9b958c, #c8c1b8)' }
   }
 
   const averageToxicity = filtered.length
@@ -117,88 +124,231 @@ export default function AdminFlaggedPage() {
     : 0
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fdf5eb' }}>
+    <div style={{ minHeight: '100vh', background: '#fefcf9' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        ::selection { background: #ff6daf; color: #4b002a; }
+        .mat-fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        ::selection { background: #ec4899; color: #ffffff; }
         @keyframes toastIn { 0% { opacity:0; transform:translate(-50%,10px); } 100% { opacity:1; transform:translate(-50%,0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .glass-card {
+          background: #ffffff;
+          border: 1px solid rgba(234, 225, 213, 0.4);
+          border-radius: 20px;
+          box-shadow: 0 4px 20px rgba(50, 46, 40, 0.04);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .glass-card:hover {
+          box-shadow: 0 8px 30px rgba(50, 46, 40, 0.08);
+          border-color: rgba(234, 225, 213, 0.6);
+        }
+
+        .gradient-text {
+          background: linear-gradient(135deg, #b00d6a 0%, #fb923c 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .filter-btn {
+          padding: 0.625rem 1.25rem;
+          border-radius: 9999px;
+          border: 1px solid rgba(234, 225, 213, 0.4);
+          background: #ffffff;
+          color: #6b665e;
+          font-size: 0.875rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'Inter', sans-serif;
+        }
+
+        .filter-btn:hover {
+          background: rgba(248, 240, 229, 0.6);
+          border-color: rgba(234, 225, 213, 0.6);
+          color: #322e28;
+        }
+
+        .filter-btn.active {
+          background: linear-gradient(135deg, #ec4899, #fb923c);
+          color: #ffffff;
+          border-color: transparent;
+          box-shadow: 0 4px 16px rgba(236, 72, 153, 0.2);
+        }
       `}</style>
 
       <AdminSidebar activePage="flagged" />
 
-      <main className="admin-main-content" style={{ padding: '2rem 1.5rem', maxWidth: '80rem' }}>
-        <div style={{ marginBottom: '2rem' }}>
-          <p style={{ fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#b00d6a', marginBottom: '0.5rem' }}>Moderation Queue</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', fontWeight: 800, letterSpacing: '-0.03em', background: 'linear-gradient(135deg, #b00d6a, #904800)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Flagged Content</h2>
+      <main className="admin-main-content" style={{ padding: '2rem 1.5rem 4rem', maxWidth: '85rem', margin: '0 auto' }}>
+        <div style={{ marginBottom: '2.5rem', animation: 'slideUp 0.6s ease-out' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem 1.25rem', borderRadius: 9999, background: 'rgba(180, 19, 64, 0.08)', border: '1px solid rgba(180, 19, 64, 0.2)', marginBottom: '1.25rem' }}>
+            <span className="material-symbols-outlined mat-fill" style={{ fontSize: 16, color: '#b41340' }}>shield</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b41340' }}>Moderation Queue</span>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div>
+              <h1 className="gradient-text" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, letterSpacing: '-0.04em', marginBottom: '0.5rem', lineHeight: 1.1 }}>
+                Flagged Content
+              </h1>
+              <p style={{ color: '#7b766e', fontSize: '1.0625rem', fontWeight: 500 }}>
+                Review and moderate reported content
+              </p>
+            </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', background: '#efe7dc', borderRadius: 9999, padding: 4 }}>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {['pending', 'reviewed', 'all'].map((s) => (
-                  <button key={s} onClick={() => setStatusFilter(s)} style={{ padding: '0.5rem 1.25rem', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 700, textTransform: 'capitalize', background: statusFilter === s ? '#ffffff' : 'transparent', color: statusFilter === s ? '#322e28' : '#5f5b53', boxShadow: statusFilter === s ? '0 2px 8px rgba(0,0,0,0.06)' : 'none' }}>{s}</button>
+                  <button 
+                    key={s} 
+                    onClick={() => setStatusFilter(s)} 
+                    className={`filter-btn ${statusFilter === s ? 'active' : ''}`}
+                  >
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
                 ))}
               </div>
-              <div style={{ display: 'flex', background: '#efe7dc', borderRadius: 9999, padding: 4 }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {[{ k: 'all', l: 'All' }, { k: 'post', l: 'Posts' }, { k: 'comment', l: 'Comments' }].map(({ k, l }) => (
-                  <button key={k} onClick={() => setTypeFilter(k)} style={{ padding: '0.5rem 1rem', borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: '0.8125rem', fontWeight: 700, background: typeFilter === k ? '#ffffff' : 'transparent', color: typeFilter === k ? '#322e28' : '#5f5b53', boxShadow: typeFilter === k ? '0 2px 8px rgba(0,0,0,0.06)' : 'none' }}>{l}</button>
+                  <button 
+                    key={k} 
+                    onClick={() => setTypeFilter(k)} 
+                    className={`filter-btn ${typeFilter === k ? 'active' : ''}`}
+                  >
+                    {l}
+                  </button>
                 ))}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="admin-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
-          <style>{`@media (min-width: 1024px) { .admin-two-col { grid-template-columns: 2fr 1fr !important; } }`}</style>
+        <div className="analytics-grid" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
+          <style>{`@media (min-width: 1024px) { .analytics-grid { grid-template-columns: 2fr 1fr !important; } }`}</style>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {filtered.map((item) => {
+            {filtered.map((item, index) => {
               const sev = severityStyle(item.severity)
               return (
-                <div key={item.id} style={{ background: '#ffffff', borderRadius: '1rem', padding: '2rem', boxShadow: '0 20px 40px rgba(50,46,40,0.06)', borderLeft: `4px solid ${sev.border}`, position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                      <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f8f0e5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>{item.anonymousEmoji}</div>
+                <div 
+                  key={item.id} 
+                  className="glass-card" 
+                  style={{ 
+                    padding: '2rem', 
+                    borderLeft: `4px solid ${sev.border}`, 
+                    position: 'relative', 
+                    overflow: 'hidden',
+                    animation: 'slideUp 0.5s ease-out backwards',
+                    animationDelay: `${index * 0.05}s`
+                  }}
+                >
+                  {/* Gradient Accent */}
+                  <div style={{ position: 'absolute', top: 0, right: 0, width: '140px', height: '140px', background: sev.gradient, borderRadius: '50%', filter: 'blur(60px)', opacity: 0.08, pointerEvents: 'none' }} />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ width: 56, height: 56, borderRadius: '16px', background: 'rgba(248, 240, 229, 0.6)', border: '1px solid rgba(234, 225, 213, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.75rem' }}>{item.anonymousEmoji}</div>
                       <div>
-                        <h4 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#322e28' }}>{item.anonymousName}</h4>
-                        <p style={{ fontSize: '0.75rem', color: '#7b766e' }}>{item.type === 'post' ? 'Post' : 'Comment'} • Reported {timeAgo(item.createdAt)}</p>
+                        <h4 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#322e28', fontSize: '1.0625rem', marginBottom: '0.25rem' }}>{item.anonymousName}</h4>
+                        <p style={{ fontSize: '0.8125rem', color: '#9b958c', fontFamily: "'Inter', sans-serif" }}>{item.type === 'post' ? 'Post' : 'Comment'} • Reported {timeAgo(item.createdAt)}</p>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', padding: '0.25rem 0.75rem', borderRadius: 9999, background: sev.bg }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: 14, color: sev.color }}>{item.severity === 'critical' ? 'priority_high' : 'info'}</span>
-                      <span style={{ fontSize: '0.6875rem', fontWeight: 800, color: sev.color, textTransform: 'uppercase', letterSpacing: '0.02em' }}>{sev.label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: 9999, background: sev.bg, border: `1px solid ${sev.color}20` }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: sev.color }}>{item.severity === 'critical' ? 'priority_high' : 'info'}</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: sev.color, textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{sev.label}</span>
                     </div>
                   </div>
 
-                  <p style={{ fontSize: '1rem', color: '#322e28', lineHeight: 1.65, marginBottom: '1rem', fontStyle: item.type === 'comment' ? 'italic' : 'normal' }}>&quot;{item.text}&quot;</p>
+                  <p style={{ fontSize: '1.0625rem', color: '#322e28', lineHeight: 1.7, marginBottom: '1.25rem', fontFamily: "'Inter', sans-serif", fontStyle: item.type === 'comment' ? 'italic' : 'normal', padding: '1rem 1.25rem', background: 'rgba(248, 240, 229, 0.4)', borderRadius: '12px', border: '1px solid rgba(234, 225, 213, 0.3)' }}>
+                    &quot;{item.text}&quot;
+                  </p>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '1.5rem' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.75rem' }}>
                     {item.reasons.map((r) => (
-                      <span key={r} style={{ padding: '0.375rem 0.875rem', borderRadius: 9999, background: '#f8f0e5', fontSize: '0.75rem', fontWeight: 600, color: '#5f5b53', border: '1px solid rgba(179,172,163,0.15)' }}>{r}</span>
+                      <span key={r} style={{ padding: '0.375rem 0.875rem', borderRadius: 9999, background: 'rgba(248, 240, 229, 0.6)', fontSize: '0.8125rem', fontWeight: 600, color: '#6b665e', border: '1px solid rgba(234, 225, 213, 0.4)', fontFamily: "'Inter', sans-serif" }}>{r}</span>
                     ))}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                    <div style={{ background: '#f8f0e5', padding: '1rem', borderRadius: '0.75rem' }}>
-                      <p style={{ fontSize: '0.5625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b3aca3', marginBottom: '0.25rem' }}>REPORTS</p>
-                      <p style={{ fontSize: '1.5rem', fontWeight: 900, color: '#322e28', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{item.reportCount}</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
+                    <div style={{ background: 'rgba(248, 240, 229, 0.5)', padding: '1.25rem', borderRadius: '14px', border: '1px solid rgba(234, 225, 213, 0.3)' }}>
+                      <p style={{ fontSize: '0.625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b3a898', marginBottom: '0.5rem', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>REPORTS</p>
+                      <p style={{ fontSize: '2rem', fontWeight: 900, color: '#322e28', fontFamily: "'Plus Jakarta Sans', sans-serif", lineHeight: 1 }}>{item.reportCount}</p>
                     </div>
-                    <div style={{ background: '#f8f0e5', padding: '1rem', borderRadius: '0.75rem' }}>
-                      <p style={{ fontSize: '0.5625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b3aca3', marginBottom: '0.25rem' }}>AI SCORE</p>
-                      <p style={{ fontSize: '1.5rem', fontWeight: 900, fontFamily: "'Plus Jakarta Sans', sans-serif", color: item.moderationScore > 80 ? '#b41340' : item.moderationScore > 40 ? '#904800' : '#22c55e' }}>{item.moderationScore}%</p>
+                    <div style={{ background: 'rgba(248, 240, 229, 0.5)', padding: '1.25rem', borderRadius: '14px', border: '1px solid rgba(234, 225, 213, 0.3)' }}>
+                      <p style={{ fontSize: '0.625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b3a898', marginBottom: '0.5rem', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>AI SCORE</p>
+                      <p style={{ fontSize: '2rem', fontWeight: 900, fontFamily: "'Plus Jakarta Sans', sans-serif", lineHeight: 1, color: item.moderationScore > 80 ? '#b41340' : item.moderationScore > 40 ? '#ea6c00' : '#22c55e' }}>{item.moderationScore}%</p>
                     </div>
-                    <div style={{ background: '#f8f0e5', padding: '1rem', borderRadius: '0.75rem' }}>
-                      <p style={{ fontSize: '0.5625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b3aca3', marginBottom: '0.25rem' }}>REASON</p>
-                      <p style={{ fontSize: '1rem', fontWeight: 700, color: '#5f5b53' }}>{item.mainReason}</p>
+                    <div style={{ background: 'rgba(248, 240, 229, 0.5)', padding: '1.25rem', borderRadius: '14px', border: '1px solid rgba(234, 225, 213, 0.3)' }}>
+                      <p style={{ fontSize: '0.625rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#b3a898', marginBottom: '0.5rem', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>PRIMARY</p>
+                      <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#6b665e', fontFamily: "'Inter', sans-serif", lineHeight: 1.4 }}>{item.mainReason}</p>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.625rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(179,172,163,0.1)', flexWrap: 'wrap' }}>
-                    <button onClick={() => handleAction(item, 'approve')} style={{ padding: '0.625rem 1.5rem', borderRadius: 9999, background: '#e4dccf', color: '#322e28', border: 'none', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>Approve</button>
-                    <button onClick={() => handleAction(item, 'remove')} style={{ padding: '0.625rem 1.5rem', borderRadius: 9999, background: '#b41340', color: '#ffffff', border: 'none', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>Remove</button>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(234, 225, 213, 0.3)', flexWrap: 'wrap' }}>
+                    <button 
+                      onClick={() => handleAction(item, 'approve')} 
+                      style={{ 
+                        padding: '0.75rem 1.75rem', 
+                        borderRadius: 9999, 
+                        background: '#ffffff', 
+                        color: '#322e28', 
+                        border: '1px solid rgba(234, 225, 213, 0.5)', 
+                        fontWeight: 700, 
+                        fontSize: '0.9375rem', 
+                        cursor: 'pointer', 
+                        fontFamily: "'Inter', sans-serif",
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(248, 240, 229, 0.6)'; e.currentTarget.style.borderColor = 'rgba(234, 225, 213, 0.8)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = 'rgba(234, 225, 213, 0.5)' }}
+                    >
+                      Approve
+                    </button>
+                    <button 
+                      onClick={() => handleAction(item, 'remove')} 
+                      style={{ 
+                        padding: '0.75rem 1.75rem', 
+                        borderRadius: 9999, 
+                        background: 'linear-gradient(135deg, #b41340, #dc2626)', 
+                        color: '#ffffff', 
+                        border: 'none', 
+                        fontWeight: 700, 
+                        fontSize: '0.9375rem', 
+                        cursor: 'pointer', 
+                        fontFamily: "'Inter', sans-serif",
+                        boxShadow: '0 4px 16px rgba(180, 19, 64, 0.2)',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(180, 19, 64, 0.3)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(180, 19, 64, 0.2)' }}
+                    >
+                      Remove
+                    </button>
                     {item.severity === 'critical' && (
-                      <button onClick={() => handleAction(item, 'ban')} style={{ padding: '0.625rem 1.5rem', borderRadius: 9999, background: '#322e28', color: '#ffffff', border: 'none', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>Ban User</button>
+                      <button 
+                        onClick={() => handleAction(item, 'ban')} 
+                        style={{ 
+                          padding: '0.75rem 1.75rem', 
+                          borderRadius: 9999, 
+                          background: '#322e28', 
+                          color: '#ffffff', 
+                          border: 'none', 
+                          fontWeight: 700, 
+                          fontSize: '0.9375rem', 
+                          cursor: 'pointer', 
+                          fontFamily: "'Inter', sans-serif",
+                          boxShadow: '0 4px 16px rgba(50, 46, 40, 0.2)',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(50, 46, 40, 0.3)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(50, 46, 40, 0.2)' }}
+                      >
+                        Ban User
+                      </button>
                     )}
                   </div>
                 </div>
@@ -206,43 +356,55 @@ export default function AdminFlaggedPage() {
             })}
 
             {filtered.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#ffffff', borderRadius: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 56, color: '#eae1d5' }}>check_circle</span>
-                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#7b766e', marginTop: '1rem' }}>Queue is clear!</p>
+              <div className="glass-card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 72, color: 'rgba(234, 225, 213, 0.5)', marginBottom: '1rem', display: 'block' }}>check_circle</span>
+                <p style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, color: '#4a4239', fontSize: '1.125rem', marginBottom: '0.5rem' }}>Queue is clear!</p>
+                <p style={{ fontSize: '0.9375rem', color: '#b3a898' }}>No flagged content to review</p>
               </div>
             )}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ background: 'linear-gradient(135deg, #b00d6a, #904800)', padding: '2rem', borderRadius: '1.5rem', color: '#ffffff', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(176,13,106,0.2)' }}>
-              <span className="material-symbols-outlined" style={{ position: 'absolute', right: -16, bottom: -16, fontSize: 96, opacity: 0.1, color: '#ffffff' }}>monitoring</span>
-              <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: '1.375rem', marginBottom: '0.5rem' }}>Toxicity Pulse</h3>
-              <p style={{ opacity: 0.8, fontSize: '0.8125rem', marginBottom: '1.5rem' }}>Live moderation view from hidden posts and comments.</p>
+            <div className="glass-card" style={{ padding: '2rem', background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.03), rgba(251, 146, 60, 0.03))', position: 'relative', overflow: 'hidden', animation: 'slideUp 0.7s ease-out backwards', animationDelay: '0.3s' }}>
+              <div style={{ position: 'absolute', top: -20, right: -20, width: '120px', height: '120px', background: 'linear-gradient(135deg, #ec4899, #fb923c)', borderRadius: '50%', filter: 'blur(60px)', opacity: 0.1, pointerEvents: 'none' }} />
+              
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{ width: 56, height: 56, borderRadius: '16px', background: 'linear-gradient(135deg, #b00d6a, #904800)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem', boxShadow: '0 8px 24px rgba(176, 13, 106, 0.2)' }}>
+                  <span className="material-symbols-outlined mat-fill" style={{ fontSize: 28, color: '#ffffff' }}>monitoring</span>
+                </div>
+                <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, fontSize: '1.25rem', color: '#322e28', marginBottom: '0.5rem' }}>Toxicity Pulse</h3>
+                <p style={{ fontSize: '0.875rem', color: '#7b766e' }}>Live moderation metrics</p>
+              </div>
+
               {[
-                { label: 'Average Toxicity', value: `${averageToxicity}%`, width: Math.max(6, averageToxicity) },
-                { label: 'Queue Size', value: `${filtered.length}`, width: Math.min(100, Math.max(6, filtered.length * 10)) },
+                { label: 'Average Toxicity', value: `${averageToxicity}%`, width: Math.max(6, averageToxicity), color: averageToxicity > 70 ? '#b41340' : averageToxicity > 40 ? '#ea6c00' : '#22c55e' },
+                { label: 'Queue Size', value: `${filtered.length}`, width: Math.min(100, Math.max(6, filtered.length * 10)), color: '#ec4899' },
               ].map((m) => (
-                <div key={m.label} style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.375rem' }}>
-                    <span>{m.label}</span><span>{m.value}</span>
+                <div key={m.label} style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.625rem', fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#6b665e' }}>
+                    <span>{m.label}</span>
+                    <span style={{ color: m.color }}>{m.value}</span>
                   </div>
-                  <div style={{ height: 8, background: 'rgba(255,255,255,0.2)', borderRadius: 9999, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${m.width}%`, background: '#ffffff', borderRadius: 9999, boxShadow: '0 0 10px rgba(255,255,255,0.5)' }} />
+                  <div style={{ height: 10, background: 'rgba(234, 225, 213, 0.3)', borderRadius: 9999, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${m.width}%`, background: m.color, borderRadius: 9999, boxShadow: `0 0 12px ${m.color}40`, transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' }} />
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ background: '#f8f0e5', padding: '2rem', borderRadius: '1.25rem' }}>
-              <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, color: '#322e28', marginBottom: '1rem' }}>Guidelines</h3>
+            <div className="glass-card" style={{ padding: '2rem', animation: 'slideUp 0.7s ease-out backwards', animationDelay: '0.4s' }}>
+              <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 800, color: '#322e28', marginBottom: '1.25rem', fontSize: '1.125rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#fb923c' }}>info</span>
+                Guidelines
+              </h3>
               {[
-                { color: '#b41340', text: 'Approve only after confirming the content is safe to restore' },
-                { color: '#b00d6a', text: 'Remove content that remains toxic after review' },
-                { color: '#904800', text: 'Use ban for repeated or severe abuse' },
+                { color: '#22c55e', text: 'Approve only after confirming the content is safe to restore' },
+                { color: '#b41340', text: 'Remove content that remains toxic after review' },
+                { color: '#322e28', text: 'Use ban for repeated or severe abuse' },
               ].map((g) => (
-                <div key={g.text} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.875rem' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: g.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#322e28' }}>{g.text}</span>
+                <div key={g.text} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(234, 225, 213, 0.2)' }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: g.color, flexShrink: 0, marginTop: '0.25rem', boxShadow: `0 0 8px ${g.color}40` }} />
+                  <span style={{ fontSize: '0.9375rem', fontWeight: 500, color: '#4a4239', lineHeight: 1.6, fontFamily: "'Inter', sans-serif" }}>{g.text}</span>
                 </div>
               ))}
             </div>
@@ -251,8 +413,8 @@ export default function AdminFlaggedPage() {
       </main>
 
       {actionDone && (
-        <div style={{ position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', background: '#322e28', color: '#ffffff', padding: '0.875rem 2rem', borderRadius: 9999, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '0.875rem', zIndex: 200, display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 12px 40px rgba(0,0,0,0.2)', animation: 'toastIn 0.3s ease' }}>
-          <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#22c55e' }}>check_circle</span>
+        <div style={{ position: 'fixed', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#ffffff', padding: '1rem 2rem', borderRadius: 9999, fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '0.9375rem', zIndex: 200, display: 'flex', alignItems: 'center', gap: '0.625rem', boxShadow: '0 12px 40px rgba(34, 197, 94, 0.3)', animation: 'toastIn 0.3s ease' }}>
+          <span className="material-symbols-outlined mat-fill" style={{ fontSize: 20 }}>check_circle</span>
           {actionDone}
         </div>
       )}
