@@ -19,6 +19,9 @@ body {
 }
 
 main {
+  min-height: 100vh;
+}
+
 /* ============ AUTH PAGE ANIMATIONS ============ */
 
 @keyframes spin {
@@ -647,6 +650,11 @@ pointer-events:none;
 /* HOVER */
 .brew-card:hover {
   transform: translateY(-10px) scale(1.01);
+  box-shadow:
+    0 20px 50px rgba(255,140,0,0.18),
+    0 10px 25px rgba(0,0,0,0.06);
+}
+
 .tt-toast-viewport {
   position: fixed;
   top: max(1rem, env(safe-area-inset-top, 0px) + 0.5rem);
@@ -766,11 +774,6 @@ pointer-events:none;
 }
 .mat-fill {
   font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-}
-
-  box-shadow:
-    0 20px 50px rgba(255,140,0,0.18),
-    0 10px 25px rgba(0,0,0,0.06);
 }
 
 /* GLOW ORB */

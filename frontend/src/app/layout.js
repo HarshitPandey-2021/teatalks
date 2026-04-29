@@ -1,12 +1,7 @@
 import "./globals.css";
-
-
 import LayoutShell from "@/components/LayoutShell";
 import { AuthProvider } from "@/context/AuthContext";
-import "./globals.css"
-import LayoutShell from "../components/LayoutShell"
-import { AuthProvider } from "../context/AuthContext"
-import { ToastProvider } from "../context/ToastContext"
+import { ToastProvider } from "@/context/ToastContext";
 
 export const metadata = {
   title: "TeaTalks",
@@ -33,33 +28,15 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-
       <body suppressHydrationWarning>
         <AuthProvider>
-
-          {/* NAVBAR */}
-  
-
-          {/* MAIN LAYOUT WRAPPER */}
-          <LayoutShell>
-            <main style={{ minHeight: "100vh" }}>
-              {children}
-            </main>
-          </LayoutShell>
-
-          {/* FOOTER */}
-   
-
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
           <ToastProvider>
-            <LayoutShell>{children}</LayoutShell>
+            <LayoutShell>
+              <main style={{ minHeight: "100vh" }}>{children}</main>
+            </LayoutShell>
           </ToastProvider>
         </AuthProvider>
       </body>
     </html>
-  )
+  );
 }
