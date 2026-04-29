@@ -1,5 +1,7 @@
-// app/feed/page.jsx
 "use client"
+
+
+// app/feed/page.jsx
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
@@ -280,7 +282,14 @@ export default function FeedPage() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
+useEffect(() => {
+  document.title = "Feed | TeaTalks"
+}, [])
+
+
   // Auth guard
+
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
     if (!authLoading && isAuthenticated && user?.role === 'admin') router.push('/admin')

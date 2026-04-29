@@ -78,6 +78,10 @@ export default function LoginPage() {
   const router = useRouter()
 
   useEffect(() => {
+  document.title = "Login | TeaTalks"
+}, [])
+
+  useEffect(() => {
     if (!authLoading && isAuthenticated) {
       router.push(user?.role === 'admin' ? '/admin' : '/feed')
     }

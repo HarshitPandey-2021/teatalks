@@ -25,6 +25,10 @@ export default function AdminOverviewPage() {
   const [loadingData, setLoadingData] = useState(true)
   const isRefreshingOverviewRef = useRef(false)
 
+useEffect(() => {
+  document.title = "Admin | TeaTalks"
+}, [])
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
     if (!authLoading && isAuthenticated && user?.role !== 'admin') router.push('/feed')
