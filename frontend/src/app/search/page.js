@@ -14,10 +14,11 @@ export default function SearchPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const urlQuery = useMemo(() => (searchParams.get('q') || '').trim(), [searchParams])
 
   const [allPosts, setAllPosts] = useState([])
-  const [query, setQuery] = useState(searchParams.get('q') || '')
-  const [searched, setSearched] = useState(false)
+  const [query, setQuery] = useState(urlQuery)
+  const [searched, setSearched] = useState(Boolean(urlQuery))
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
@@ -34,14 +35,6 @@ export default function SearchPage() {
     }
     if (isAuthenticated) loadPosts()
   }, [isAuthenticated])
-
-  useEffect(() => {
-    const q = (searchParams.get('q') || '').trim()
-    if (q) {
-      setQuery(q)
-      setSearched(true)
-    }
-  }, [searchParams])
 
   const results = useMemo(() => {
     if (!query.trim()) return []

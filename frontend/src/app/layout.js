@@ -1,6 +1,7 @@
 import "./globals.css"
 import LayoutShell from "../components/LayoutShell"
 import { AuthProvider } from "../context/AuthContext"
+import { ToastProvider } from "../context/ToastContext"
 
 export const metadata = {
   title: "TeaTalks",
@@ -24,7 +25,9 @@ export default function RootLayout({ children }) {
       </head>
       <body suppressHydrationWarning>
         <AuthProvider>
-          <LayoutShell>{children}</LayoutShell>
+          <ToastProvider>
+            <LayoutShell>{children}</LayoutShell>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

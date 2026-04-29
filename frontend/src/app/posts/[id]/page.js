@@ -8,8 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import CommentCard from '@/components/CommentCard'
 import CommentForm from '@/components/CommentForm'
+import PostPoll from '@/components/PostPoll'
 import ReportModal from '@/components/ReportModal'
 import PostCard from '@/components/PostCard'
+import { useToast } from '@/context/ToastContext'
 import api from '@/lib/axios'
 
 /* ─────────────────────────────────────────────────────────────
@@ -53,12 +55,12 @@ async function submitVote(postId, vote) {
 }
 
 async function submitComment(postId, text) {
-  const res = await api.post(`/posts/${postId}/comments`, { text })
+  const res = await api.post(`/posts/${postId}/comments`, { text }, { timeout: 15000 })
   return res.data
 }
 
 async function submitReply(postId, parentCommentId, text) {
-  const res = await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text })
+  const res = await api.post(`/posts/${postId}/comments/${parentCommentId}/replies`, { text }, { timeout: 15000 })
   return res.data
 }
 
@@ -552,7 +554,9 @@ function RelatedPosts({ currentPostId, currentCategory, currentTags = [] }) {
     : Array.from(new Set(posts.flatMap((p) => p.tags || []))).slice(0, 6)
 
   useEffect(() => {
-    fetchRelatedPosts(currentPostId, currentCategory).then(setPosts)
+    fetchRelatedPosts(currentPostId, currentCategory).then((items) => {
+      setPosts((items || []).filter((item) => String(item?._id) !== String(currentPostId)))
+    })
   }, [currentPostId, currentCategory])
 
   if (!posts.length) return null
@@ -634,6 +638,7 @@ export default function PostDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { warning: showWarningToast, error: showErrorToast } = useToast()
   const commentFormRef = useRef(null)
 
   const [post, setPost] = useState(null)
@@ -649,13 +654,24 @@ export default function PostDetailPage() {
   /* Load post + comments */
   useEffect(() => {
     if (!params.id) return
-    Promise.all([fetchPost(params.id), fetchComments(params.id)]).then(([p, c]) => {
-      setPost(p)
-      setPostScore(p?.score || 0)
-      setCommentCount(p?.commentCount || 0)
-      setComments(c)
-      setPageLoading(false)
-    })
+    Promise.all([fetchPost(params.id), fetchComments(params.id)])
+      .then(([p, c]) => {
+        setPost(p)
+        setPostVote(p?.userVote || null)
+        setPostScore(p?.score || 0)
+        setCommentCount(p?.commentCount || 0)
+        setComments(c)
+      })
+      .catch(() => {
+        setPost(null)
+        setPostVote(null)
+        setPostScore(0)
+        setCommentCount(0)
+        setComments([])
+      })
+      .finally(() => {
+        setPageLoading(false)
+      })
   }, [params.id])
 
   /* Auth guard */
@@ -674,36 +690,44 @@ export default function PostDetailPage() {
   }, [postVote, params.id])
 
   const handleNewComment = useCallback(async (text) => {
-    const result = await submitComment(params.id, text)
-    const createdComment = result?.comment
-    const isVisible = createdComment?.visibility === 'visible' || createdComment?.visibility === undefined || createdComment?.visibility === null
+    try {
+      const result = await submitComment(params.id, text)
+      const createdComment = result?.comment
+      const isVisible = createdComment?.visibility === 'visible' || createdComment?.visibility === undefined || createdComment?.visibility === null
 
-    if (createdComment && isVisible) {
-      setComments(prev => [{ ...createdComment, replies: createdComment.replies || [] }, ...prev])
-      setCommentCount(c => c + 1)
-      return
-    }
+      if (createdComment && isVisible) {
+        setComments(prev => [{ ...createdComment, replies: createdComment.replies || [] }, ...prev])
+        setCommentCount(c => c + 1)
+        return
+      }
 
-    if (result?.toxicity?.score >= 0.6 || createdComment?.moderationStatus === 'toxic') {
-      alert('Your comment was hidden for review because it was detected as toxic.')
+      if (result?.toxicity?.score >= 0.6 || createdComment?.moderationStatus === 'toxic') {
+        showWarningToast('Your comment was hidden for review because it was detected as toxic.', { title: 'Comment Hidden' })
+      }
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || error?.message || 'Failed to post comment')
     }
-  }, [params.id])
+  }, [params.id, showErrorToast, showWarningToast])
 
   const handleReply = useCallback(async (parentId, text) => {
-    const result = await submitReply(params.id, parentId, text)
-    const newReply = result?.comment
-    const isVisible = newReply?.visibility === 'visible' || newReply?.visibility === undefined || newReply?.visibility === null
+    try {
+      const result = await submitReply(params.id, parentId, text)
+      const newReply = result?.comment
+      const isVisible = newReply?.visibility === 'visible' || newReply?.visibility === undefined || newReply?.visibility === null
 
-    if (newReply && isVisible) {
-      setComments(prev => insertReplyRecursive(prev, parentId, { ...newReply, replies: newReply.replies || [] }))
-      setCommentCount(c => c + 1)
-      return
-    }
+      if (newReply && isVisible) {
+        setComments(prev => insertReplyRecursive(prev, parentId, { ...newReply, replies: newReply.replies || [] }))
+        setCommentCount(c => c + 1)
+        return
+      }
 
-    if (result?.toxicity?.score >= 0.6 || newReply?.moderationStatus === 'toxic') {
-      alert('Your reply was hidden for review because it was detected as toxic.')
+      if (result?.toxicity?.score >= 0.6 || newReply?.moderationStatus === 'toxic') {
+        showWarningToast('Your reply was hidden for review because it was detected as toxic.', { title: 'Reply Hidden' })
+      }
+    } catch (error) {
+      showErrorToast(error?.response?.data?.message || error?.message || 'Failed to post reply')
     }
-  }, [params.id])
+  }, [params.id, showErrorToast, showWarningToast])
 
   const handleShare = useCallback(async () => {
     try { await navigator.clipboard.writeText(window.location.href) }
@@ -882,6 +906,16 @@ export default function PostDetailPage() {
                   ))}
                 </div>
               )}
+
+              {post.poll?.options?.length >= 2 ? (
+                <PostPoll
+                  poll={post.poll}
+                  postId={post._id}
+                  onPollUpdate={(nextPoll) => {
+                    setPost((prev) => (prev ? { ...prev, poll: nextPoll } : prev))
+                  }}
+                />
+              ) : null}
             </div>
 
             {/* Image */}

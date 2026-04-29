@@ -22,7 +22,6 @@ const passwordResetRequestSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
     },
     attemptCount: {
       type: Number,

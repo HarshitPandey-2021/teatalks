@@ -2,6 +2,8 @@ const Report = require('../models/reports');
 const Post = require('../models/posts');
 const Comment = require('../models/comment');
 const { buildReportModerationFields, AUTO_HIDE_REPORT_THRESHOLD } = require('../services/contentModerationService');
+const { notifyAdmins, trimMessage } = require('../services/notificationService');
+const { isValidObjectId, validateReportReason } = require('../utils/validation');
 
 exports.createReport = async (req, res) => {
   try {
@@ -9,8 +11,15 @@ exports.createReport = async (req, res) => {
     if (!targetId || !targetType || !reason) {
       return res.status(400).json({ message: 'targetId, targetType and reason are required' });
     }
+    if (!isValidObjectId(targetId)) {
+      return res.status(400).json({ message: 'targetId must be a valid id' });
+    }
     if (!['Post', 'Comment'].includes(targetType)) {
       return res.status(400).json({ message: 'targetType must be Post or Comment' });
+    }
+    const reasonError = validateReportReason(reason);
+    if (reasonError) {
+      return res.status(400).json({ message: reasonError });
     }
 
     const target =
@@ -31,14 +40,14 @@ exports.createReport = async (req, res) => {
       reporterId: req.user,
       targetId,
       targetType,
-      reason,
+      reason: String(reason).trim(),
     });
 
     const Model = targetType === 'Post' ? Post : Comment;
     const updatedTarget = await Model.findByIdAndUpdate(
       targetId,
       { $inc: { reports: 1 } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     let autoHidden = false;
@@ -46,9 +55,12 @@ exports.createReport = async (req, res) => {
       const moderationFields = buildReportModerationFields(updatedTarget.reports, updatedTarget.moderationStatus);
       if (moderationFields) {
         Object.assign(updatedTarget, moderationFields);
-        if (!updatedTarget.moderationReasons.includes(`Automatically hidden after ${AUTO_HIDE_REPORT_THRESHOLD} reports`)) {
+        const moderationReasons = Array.isArray(updatedTarget.moderationReasons)
+          ? updatedTarget.moderationReasons
+          : [];
+        if (!moderationReasons.includes(`Automatically hidden after ${AUTO_HIDE_REPORT_THRESHOLD} reports`)) {
           updatedTarget.moderationReasons = [
-            ...updatedTarget.moderationReasons,
+            ...moderationReasons,
             `Automatically hidden after ${AUTO_HIDE_REPORT_THRESHOLD} reports`
           ];
         }
@@ -56,6 +68,18 @@ exports.createReport = async (req, res) => {
         autoHidden = true;
       }
     }
+
+    await notifyAdmins({
+      type: 'admin_report_created',
+      title: 'New report received',
+      message: `${targetType} reported: ${trimMessage(reason, 120)}`,
+      href: '/admin/flagged',
+      metadata: {
+        reportId: report._id,
+        targetId,
+        targetType,
+      },
+    });
 
     return res.status(201).json({ report, autoHidden });
   } catch (error) {

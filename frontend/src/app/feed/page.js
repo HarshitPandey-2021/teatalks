@@ -7,7 +7,9 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import PostCard from '@/components/PostCard'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import api from '@/lib/axios'
+import { validatePostText, validateTags } from '@/lib/validation'
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // STATIC DATA
@@ -31,6 +33,7 @@ const DEFAULT_TRENDING_TAGS = [
 ]
 
 const MAX_PULSE_ITEMS = 6
+const FEED_REFRESH_INTERVAL_MS = 15000
 
 function timeAgo(dateValue) {
   if (!dateValue) return 'just now'
@@ -262,8 +265,10 @@ export default function FeedPage() {
   const [pulseEvents, setPulseEvents] = useState([])
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const { user, isAuthenticated, loading: authLoading } = useAuth()
+  const { error: showErrorToast, warning: showWarningToast } = useToast()
   const router = useRouter()
   const allPostsRef = useRef([])
+  const isRefreshingPostsRef = useRef(false)
   const [posts, setPosts] = useState([])
   const [postsLoading, setPostsLoading] = useState(true)
   const [editModalPost, setEditModalPost] = useState(null)
@@ -278,19 +283,59 @@ export default function FeedPage() {
   // Auth guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
-  }, [authLoading, isAuthenticated, router])
+    if (!authLoading && isAuthenticated && user?.role === 'admin') router.push('/admin')
+  }, [authLoading, isAuthenticated, router, user?.role])
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async ({ silent = false } = {}) => {
+    if (isRefreshingPostsRef.current) return
+    isRefreshingPostsRef.current = true
+
+    if (!silent) {
+      setPostsLoading(true)
+    }
+
     try {
       const res = await api.get('/posts')
       setPosts(res.data.posts || [])
+    } catch (error) {
+      if (!silent) {
+        showErrorToast(error.response?.data?.message || 'Failed to refresh feed')
+      }
     } finally {
-      setPostsLoading(false)
+      isRefreshingPostsRef.current = false
+      if (!silent) {
+        setPostsLoading(false)
+      }
     }
-  }, [])
+  }, [showErrorToast])
 
   useEffect(() => {
     if (isAuthenticated) fetchPosts()
+  }, [isAuthenticated, fetchPosts])
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchPosts({ silent: true })
+      }
+    }, FEED_REFRESH_INTERVAL_MS)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPosts({ silent: true })
+      }
+    }
+
+    window.addEventListener('focus', handleVisibilityChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleVisibilityChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [isAuthenticated, fetchPosts])
 
   const allPosts = useMemo(() => posts, [posts])
@@ -404,7 +449,7 @@ export default function FeedPage() {
       setPosts((prev) => prev.filter((p) => p._id !== postId))
       setDeleteTarget(null)
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to delete post')
+      showErrorToast(error.response?.data?.message || 'Failed to delete post')
     } finally {
       setDeleteLoading(false)
     }
@@ -434,12 +479,23 @@ export default function FeedPage() {
 
   const submitEditPost = async () => {
     if (!editModalPost) return
+    const textError = validatePostText(editForm.text)
+    if (textError) {
+      showWarningToast(textError, { title: 'Invalid Post' })
+      return
+    }
     setEditLoading(true)
     try {
-      const tags = editForm.tags
+      const tagResult = validateTags(editForm.tags
         .split(',')
         .map((t) => t.trim())
-        .filter(Boolean)
+        .filter(Boolean))
+      if (tagResult.error) {
+        showWarningToast(tagResult.error, { title: 'Invalid Tags' })
+        setEditLoading(false)
+        return
+      }
+      const tags = tagResult.value
       const payload = {
         text: editForm.text,
         category: editForm.category,
@@ -469,11 +525,11 @@ export default function FeedPage() {
         setPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updatedPost } : p)))
       } else {
         setPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
-        alert('Your post was hidden for review because it was detected as toxic.')
+        showWarningToast('Your post was hidden for review because it was detected as toxic.', { title: 'Post Hidden' })
       }
       closeEditModal()
     } catch (error) {
-      alert(error.response?.data?.message || 'Failed to update post')
+      showErrorToast(error.response?.data?.message || 'Failed to update post')
     } finally {
       setEditLoading(false)
     }

@@ -7,6 +7,17 @@ const PasswordResetRequest = require('../models/passwordResetRequest');
 const PendingRegistration = require('../models/pendingRegistration');
 const { sendPasswordResetOtp, sendRegistrationOtp } = require('../services/mailService');
 const Comment = require('../models/comment');
+const Notification = require('../models/notification');
+const {
+  OTP_LENGTH,
+  normalizeEmail,
+  validateBranch,
+  validateCampusName,
+  validatePassword,
+  validateYear,
+  isValidEmail,
+  isValidOtp,
+} = require('../utils/validation');
 
 const ADJECTIVES = [
   'Silent', 'Curious', 'Shadow', 'Midnight', 'Cool',
@@ -69,20 +80,8 @@ function buildAuthResponse(user) {
   };
 }
 
-function normalizeEmail(email = '') {
-  return email.trim().toLowerCase();
-}
-
 function escapeRegExp(value = '') {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function isValidEmail(email = '') {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidPassword(password = '') {
-  return typeof password === 'string' && password.length >= 8;
 }
 
 function hashOtp(otp = '') {
@@ -115,14 +114,16 @@ exports.requestRegistrationOtp = async (req, res) => {
         message: 'campusName, email, and password are required',
       });
     }
-    if (campusName.trim().length < 2 || campusName.trim().length > 80) {
-      return res.status(400).json({ message: 'campusName must be between 2 and 80 characters' });
+    const campusError = validateCampusName(campusName);
+    if (campusError) {
+      return res.status(400).json({ message: campusError });
     }
     if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ message: 'Invalid email format' });
     }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     const existingUser = await User.findOne({ email: normalizedEmail });
@@ -169,6 +170,12 @@ exports.register = async (req, res) => {
     const otp = `${req.body?.otp || ''}`.trim();
     if (!normalizedEmail || !otp) {
       return res.status(400).json({ message: 'email and otp are required' });
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    if (!isValidOtp(otp)) {
+      return res.status(400).json({ message: `OTP must be exactly ${OTP_LENGTH} digits` });
     }
 
     const existingUser = await User.findOne({ email: normalizedEmail }).select('_id');
@@ -231,6 +238,9 @@ exports.login = async (req, res) => {
     if (!normalizedEmail || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
 
     // Find user by exact email, case-insensitive for older mixed-case records.
     const user = await User.findOne({
@@ -290,16 +300,18 @@ exports.updateMe = async (req, res) => {
 
     if (branch !== undefined) {
       const safeBranch = String(branch).trim();
-      if (!safeBranch || safeBranch.length > 80) {
-        return res.status(400).json({ message: 'Invalid branch value' });
+      const branchError = validateBranch(safeBranch);
+      if (branchError) {
+        return res.status(400).json({ message: branchError });
       }
       updates.branch = safeBranch;
     }
 
     if (year !== undefined) {
       const safeYear = String(year).trim();
-      if (!safeYear || safeYear.length > 40) {
-        return res.status(400).json({ message: 'Invalid year value' });
+      const yearError = validateYear(safeYear);
+      if (yearError) {
+        return res.status(400).json({ message: yearError });
       }
       updates.year = safeYear;
     }
@@ -308,7 +320,11 @@ exports.updateMe = async (req, res) => {
       return res.status(400).json({ message: 'No profile fields provided' });
     }
 
-    const user = await User.findByIdAndUpdate(req.user, { $set: updates }, { new: true }).select('-password');
+    const user = await User.findByIdAndUpdate(
+      req.user,
+      { $set: updates },
+      { returnDocument: 'after' }
+    ).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -373,6 +389,65 @@ exports.getMyActivity = async (req, res) => {
   }
 };
 
+exports.getMyNotifications = async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query?.limit, 10) || 20, 1), 100);
+    const notifications = await Notification.find({ recipientId: req.user })
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    const unreadCount = await Notification.countDocuments({
+      recipientId: req.user,
+      readAt: null,
+    });
+
+    return res.json({ notifications, unreadCount });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.markNotificationRead = async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        recipientId: req.user,
+      },
+      {
+        $set: { readAt: new Date() },
+      },
+      { returnDocument: 'after' }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    const unreadCount = await Notification.countDocuments({
+      recipientId: req.user,
+      readAt: null,
+    });
+
+    return res.json({ notification, unreadCount });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.markAllNotificationsRead = async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { recipientId: req.user, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+
+    return res.json({ unreadCount: 0 });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 exports.forgotPassword = async (req, res) => {
   try {
     const normalizedEmail = normalizeEmail(req.body?.email);
@@ -426,6 +501,12 @@ exports.verifyForgotPasswordOtp = async (req, res) => {
     if (!normalizedEmail || !otp) {
       return res.status(400).json({ message: 'email and otp are required' });
     }
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    if (!isValidOtp(otp)) {
+      return res.status(400).json({ message: `OTP must be exactly ${OTP_LENGTH} digits` });
+    }
 
     const resetRequest = await PasswordResetRequest.findOne({
       email: normalizedEmail,
@@ -473,8 +554,12 @@ exports.resetPasswordWithOtp = async (req, res) => {
     if (!normalizedEmail || !resetToken || !newPassword) {
       return res.status(400).json({ message: 'email, resetToken, and newPassword are required' });
     }
-    if (!isValidPassword(newPassword)) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     let decoded;

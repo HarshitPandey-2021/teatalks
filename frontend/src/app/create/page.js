@@ -5,6 +5,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import api from '@/lib/axios'
+import { MAX_TAGS, POST_MAX_LENGTH, POST_MIN_LENGTH, validatePostText, validateTags } from '@/lib/validation'
 
 const CATEGORIES = [
   { key: 'academic', label: 'Academic', icon: 'school', feedLabel: 'Academic' },
@@ -33,11 +34,11 @@ const CATEGORY_TO_FEED = {
 }
 
 const DURATIONS = ['6h', '12h', '24h', '48h']
-const MAX_CHARS = 1000
-const MAX_TAGS = 5
+const MAX_CHARS = POST_MAX_LENGTH
 const MAX_IMAGES = 4
 const MAX_POLL_OPTIONS = 6
-const MIN_CHARS = 10
+const MIN_CHARS = POST_MIN_LENGTH
+const CREATE_POST_TIMEOUT_MS = 30000
 
 export default function CreatePostPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth()
@@ -154,6 +155,18 @@ export default function CreatePostPage() {
   }, [images])
 
   const validate = useCallback(() => {
+    const textError = validatePostText(body)
+    if (textError) {
+      setErr(textError)
+      triggerShake()
+      return false
+    }
+    const tagResult = validateTags(tags)
+    if (tagResult.error) {
+      setErr(tagResult.error)
+      triggerShake()
+      return false
+    }
     if (!body.trim()) {
       setErr('Your post can\'t be empty ✍️')
       triggerShake()
@@ -179,7 +192,7 @@ export default function CreatePostPage() {
       }
     }
     return true
-  }, [body, pollOn, pollOpts])
+  }, [body, pollOn, pollOpts, tags])
 
   const uploadImageToCloudinary = useCallback(async (file) => {
     const sigRes = await api.post('/uploads/image-signature')
@@ -235,7 +248,13 @@ export default function CreatePostPage() {
         category: feedCategory,
         text: body.trim(),
         tags,
+        poll: pollOn ? {
+          options: pollOpts.map((option) => option.trim()).filter(Boolean),
+          duration: pollDur,
+        } : null,
         ...uploadPayload,
+      }, {
+        timeout: CREATE_POST_TIMEOUT_MS,
       })
 
       imagesRef.current.forEach((img) => {
@@ -253,9 +272,13 @@ export default function CreatePostPage() {
       setTimeout(() => router.push('/feed'), 800)
     } catch (error) {
       setLoading(false)
+      if (error.code === 'ECONNABORTED') {
+        setErr('Posting took longer than expected. Your post may still have been created, so please check the feed in a moment.')
+        return
+      }
       setErr(error.response?.data?.message || error.message || 'Failed to create post')
     }
-  }, [cat, body, tags, images, router, validate, uploadImageToCloudinary])
+  }, [cat, body, tags, images, pollOn, pollOpts, pollDur, router, validate, uploadImageToCloudinary])
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -409,7 +432,7 @@ export default function CreatePostPage() {
                 fontSize: '0.875rem',
                 fontFamily: "'Inter', sans-serif",
               }}>
-                What's the buzz on campus today? ☕
+                What&apos;s the buzz on campus today? ☕
               </p>
             </div>
 

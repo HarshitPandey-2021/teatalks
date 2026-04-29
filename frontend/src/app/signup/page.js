@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Lock, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { isValidEmail, isValidOtp, isValidPassword, PASSWORD_MESSAGE } from '@/lib/validation'
 
 const POSTS = [
   {
@@ -126,9 +127,9 @@ export default function SignupPage() {
     e.preventDefault()
     const errs = {}
     if (!form.college) errs.college = 'Select your campus'
-    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
+    if (!isValidEmail(form.email.trim()))
       errs.email = 'Enter a valid email'
-    if (form.password.length < 8) errs.password = 'Minimum 8 characters'
+    if (!isValidPassword(form.password)) errs.password = PASSWORD_MESSAGE
     if (Object.keys(errs).length) return setFieldErrors(errs)
 
     setLoading(true)
@@ -151,8 +152,8 @@ export default function SignupPage() {
   }
 
   const handleVerifySignupOtp = async () => {
-    if (!otpValue.trim()) {
-      setOtpMessage('Enter the OTP from your email.')
+    if (!isValidOtp(otpValue)) {
+      setOtpMessage('Enter the 6-digit OTP from your email.')
       return
     }
     setOtpLoading(true)
@@ -891,7 +892,7 @@ export default function SignupPage() {
                     id="su-pw" name="password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password} onChange={update}
-                    placeholder="Min. 8 characters"
+                    placeholder="Uppercase, lowercase, number, special"
                     autoComplete="new-password"
                     className={`tt-input ${fieldErrors.password ? 'err' : ''}`}
                     style={{ paddingRight: '2.5rem' }}
@@ -905,6 +906,9 @@ export default function SignupPage() {
                   </button>
                 </div>
                 {fieldErrors.password && <span className="tt-field-err">{fieldErrors.password}</span>}
+                {!fieldErrors.password && (
+                  <span className="tt-field-err" style={{ color: '#9c8270' }}>{PASSWORD_MESSAGE}</span>
+                )}
               </div>
 
               <button type="submit" className="tt-cta" disabled={loading}>

@@ -2,6 +2,20 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function cloneRegex(regex) {
+  return new RegExp(regex.source, regex.flags);
+}
+
+function getEnvValue(...keys) {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
 async function withBackoff(fn, { retries = 5, baseDelayMs = 500 } = {}) {
   let attempt = 0;
   while (true) {
@@ -9,7 +23,14 @@ async function withBackoff(fn, { retries = 5, baseDelayMs = 500 } = {}) {
       return await fn();
     } catch (err) {
       const status = err?.status;
-      if (status !== 429 || attempt >= retries) {
+      const code = err?.code;
+      const isRetryableStatus = [408, 429, 500, 502, 503, 504].includes(status);
+      const isRetryableCode =
+        code === "FEATHERLESS_TIMEOUT" ||
+        code === "ECONNRESET" ||
+        code === "ETIMEDOUT";
+
+      if ((!isRetryableStatus && !isRetryableCode) || attempt >= retries) {
         throw err;
       }
       const backoff = baseDelayMs * Math.pow(2, attempt);
@@ -285,7 +306,7 @@ function hasPositiveContext(text) {
   const cleanText = normalizeClean(text);
   
   for (let pattern of positiveContextPatterns) {
-    if (pattern.test(cleanText)) {
+    if (cloneRegex(pattern).test(cleanText)) {
       return true;
     }
   }
@@ -337,7 +358,7 @@ function keywordScore(text) {
   // 🆕 Check masked abusive patterns against ORIGINAL text (with special chars)
   maskedAbusivePatterns.forEach(pattern => {
     try {
-      const matches = originalLower.match(pattern);
+      const matches = originalLower.match(cloneRegex(pattern));
       if (matches) {
         score += matches.length * 0.35;
       }
@@ -372,13 +393,13 @@ function targetingScore(text) {
 
   [...teacherPatterns, ...studentPatterns].forEach(pattern => {
     try {
-      const cleanMatches = cleanText.match(pattern);
+      const cleanMatches = cleanText.match(cloneRegex(pattern));
       if (cleanMatches) {
         score += cleanMatches.length * 0.35;
       }
       
       // 🆕 Also check deobfuscated
-      const deobMatches = deobfuscatedText.match(pattern);
+      const deobMatches = deobfuscatedText.match(cloneRegex(pattern));
       if (deobMatches && !cleanMatches) {
         score += deobMatches.length * 0.4;
       }
@@ -397,7 +418,7 @@ function casteScore(text) {
 
   castePatterns.forEach(pattern => {
     try {
-      const matches = cleanText.match(pattern);
+      const matches = cleanText.match(cloneRegex(pattern));
       if (matches) {
         score += matches.length * 0.5;
       }
@@ -415,7 +436,7 @@ function sarcasmScore(text, normalized) {
 
   sarcasticPatterns.forEach(pattern => {
     try {
-      const matches = text.match(pattern);
+      const matches = text.match(cloneRegex(pattern));
       if (matches) {
         score += matches.length * 0.3;
       }
@@ -460,7 +481,7 @@ function personalAttackScore(text) {
   // Check against clean text
   personalAttackPatterns.forEach(pattern => {
     try {
-      const matches = cleanText.match(pattern);
+      const matches = cleanText.match(cloneRegex(pattern));
       if (matches) {
         score += matches.length * 0.4;
       }
@@ -472,7 +493,7 @@ function personalAttackScore(text) {
   // 🆕 Check deobfuscated text for personal attacks
   personalAttackPatterns.forEach(pattern => {
     try {
-      const matches = deobfuscatedText.match(pattern);
+      const matches = deobfuscatedText.match(cloneRegex(pattern));
       if (matches) {
         score += matches.length * 0.45;
       }
@@ -509,7 +530,7 @@ function genderDiscriminationScore(text) {
 
   genderDiscriminationPatterns.forEach(pattern => {
     try {
-      const matches = cleanText.match(pattern);
+      const matches = cleanText.match(cloneRegex(pattern));
       if (matches) {
         score += matches.length * 0.4;
       }
@@ -538,12 +559,12 @@ function relationshipRumorScore(text) {
 
   relationshipRumorPatterns.forEach(pattern => {
     try {
-      const cleanMatches = cleanText.match(pattern);
+      const cleanMatches = cleanText.match(cloneRegex(pattern));
       if (cleanMatches) {
         score += cleanMatches.length * 0.55;
       }
 
-      const deobMatches = deobfuscatedText.match(pattern);
+      const deobMatches = deobfuscatedText.match(cloneRegex(pattern));
       if (deobMatches && !cleanMatches) {
         score += deobMatches.length * 0.6;
       }
@@ -658,38 +679,96 @@ function parseAiToxicityResponse(content) {
   }
 }
 
-async function getAiToxicityScore(text) {
-  const apiKey = process.env.FEATHERLESS_API_KEY;
-  if (!apiKey) {
-    throw new Error("FEATHERLESS_API_KEY is not configured");
+function extractAssistantContent(responseBody) {
+  const directContent = responseBody?.choices?.[0]?.message?.content;
+  if (typeof directContent === "string") {
+    return directContent;
   }
 
-  const apiUrl = process.env.FEATHERLESS_URL || "https://api.featherless.ai/v1/chat/completions";
-  const model = process.env.FEATHERLESS_MODEL || "deepseek-ai/DeepSeek-V3.2";
+  if (Array.isArray(directContent)) {
+    return directContent
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (typeof part?.text === "string") return part.text;
+        if (typeof part?.content === "string") return part.content;
+        return "";
+      })
+      .join("")
+      .trim();
+  }
+
+  if (typeof responseBody?.choices?.[0]?.text === "string") {
+    return responseBody.choices[0].text;
+  }
+
+  if (typeof responseBody?.output_text === "string") {
+    return responseBody.output_text;
+  }
+
+  return "";
+}
+
+async function getAiToxicityScore(text) {
+  const apiKey = getEnvValue("FEATHERLESS_API_KEY", "FETHERLESS_API_KEY");
+  if (!apiKey) {
+    const err = new Error("Featherless API key is missing. Set FEATHERLESS_API_KEY in backend/.env.");
+    err.code = "FEATHERLESS_CONFIG_MISSING";
+    throw err;
+  }
+
+  if (typeof fetch !== "function") {
+    const err = new Error("This Node.js runtime does not provide fetch. Use Node.js 18 or newer.");
+    err.code = "FETCH_UNAVAILABLE";
+    throw err;
+  }
+
+  const apiUrl = getEnvValue("FEATHERLESS_URL", "FETHERLESS_URL") || "https://api.featherless.ai/v1/chat/completions";
+  const model = getEnvValue("FEATHERLESS_MODEL", "FETHERLESS_MODEL") || "deepseek-ai/DeepSeek-V3.2";
+  const timeoutMs = Number(getEnvValue("FEATHERLESS_TIMEOUT_MS", "FETHERLESS_TIMEOUT_MS")) || 15000;
+  const appReferer = getEnvValue("FEATHERLESS_HTTP_REFERER", "APP_URL", "NEXT_PUBLIC_APP_URL");
+  const appTitle = getEnvValue("FEATHERLESS_APP_TITLE", "APP_NAME") || "TeaTalks";
 
   const response = await withBackoff(async () => {
-    const res = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert moderation assistant that detects toxicity in user-generated content and responds with strict JSON only."
-          },
-          {
-            role: "user",
-            content: buildToxicityPrompt(text)
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 300
-      })
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    let res;
+    try {
+      res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          ...(appReferer ? { "HTTP-Referer": appReferer } : {}),
+          ...(appTitle ? { "X-Title": appTitle } : {})
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert moderation assistant that detects toxicity in user-generated content and responds with strict JSON only."
+            },
+            {
+              role: "user",
+              content: buildToxicityPrompt(text)
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 300
+        }),
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        const err = new Error(`Featherless API timed out after ${timeoutMs}ms`);
+        err.code = "FEATHERLESS_TIMEOUT";
+        throw err;
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       const errorBody = await res.text().catch(() => "");
@@ -700,9 +779,9 @@ async function getAiToxicityScore(text) {
     }
 
     return res.json();
-  });
+  }, { retries: 1, baseDelayMs: 250 });
 
-  const content = response?.choices?.[0]?.message?.content;
+  const content = extractAssistantContent(response);
   const parsed = parseAiToxicityResponse(content);
 
   if (!parsed) {
@@ -790,6 +869,7 @@ async function detectToxicity(text) {
   // AI-based detection (with fallback)
   let aiScore = 0;
   let aiError = null;
+  let aiErrorCode = null;
   let aiIsToxic = false;
   let aiReasons = [];
   let aiSuggestions = [];
@@ -802,6 +882,7 @@ async function detectToxicity(text) {
     aiSuggestions = aiResponse.suggestions;
   } catch (err) {
     aiError = err.message;
+    aiErrorCode = err.code || null;
     console.error("AI toxicity detection failed:", err.message);
   }
 
@@ -848,7 +929,8 @@ async function detectToxicity(text) {
     isToxic,
     reasons: reasons.length > 0 ? reasons : (isToxic ? ["General negative sentiment detected"] : []),
     suggestions: suggestions.length > 0 ? suggestions : [],
-    aiError: aiError || null
+    aiError: aiError || null,
+    aiErrorCode
   };
 }
 

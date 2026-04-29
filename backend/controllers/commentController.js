@@ -2,8 +2,11 @@ const Comment = require('../models/comment');
 const Post = require('../models/posts');
 const User = require('../models/user');
 const CommentVote = require('../models/commentVote');
+const Report = require('../models/reports');
 const mongoose = require('mongoose');
 const { buildToxicityModeration } = require('../services/contentModerationService');
+const { createNotification, notifyAdmins, trimMessage } = require('../services/notificationService');
+const { validateCommentText } = require('../utils/validation');
 
 async function serializeComment(commentDoc, viewerUserId = null) {
   const comment = commentDoc.toObject ? commentDoc.toObject() : commentDoc;
@@ -29,8 +32,9 @@ exports.createComment = async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
     const { text } = req.body;
-    if (!text?.trim()) {
-      return res.status(400).json({ message: 'Comment text is required' });
+    const textError = validateCommentText(text, 'Comment');
+    if (textError) {
+      return res.status(400).json({ message: textError });
     }
 
     const post = await Post.findById(req.params.id);
@@ -50,6 +54,35 @@ exports.createComment = async (req, res) => {
       ...moderationFields,
     });
 
+    if (moderationFields?.adminReviewStatus === 'pending') {
+      await notifyAdmins({
+        type: 'admin_toxic_comment',
+        title: 'Toxic comment needs review',
+        message: trimMessage(text || 'A comment was flagged by safety checks.', 120),
+        href: '/admin/flagged',
+        metadata: {
+          targetType: 'Comment',
+          targetId: comment._id,
+          postId: post._id,
+          moderationStatus: comment.moderationStatus,
+        },
+      });
+    }
+
+    if (String(post.authorId) !== String(req.user)) {
+      await createNotification({
+        recipientId: post.authorId,
+        type: 'post_comment',
+        title: 'New comment on your post',
+        message: `${user.anonymousName} replied: ${trimMessage(text, 140)}`,
+        href: `/posts/${post._id}`,
+        metadata: {
+          postId: post._id,
+          commentId: comment._id,
+        },
+      });
+    }
+
     return res.status(201).json({ comment: await serializeComment(comment, req.user), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -62,8 +95,9 @@ exports.createReply = async (req, res) => {
       return res.status(404).json({ message: 'Post or parent comment not found' });
     }
     const { text } = req.body;
-    if (!text?.trim()) {
-      return res.status(400).json({ message: 'Reply text is required' });
+    const textError = validateCommentText(text, 'Reply');
+    if (textError) {
+      return res.status(400).json({ message: textError });
     }
 
     const post = await Post.findById(req.params.postId);
@@ -86,6 +120,36 @@ exports.createReply = async (req, res) => {
       parentCommentId: parentComment._id,
       ...moderationFields,
     });
+
+    if (moderationFields?.adminReviewStatus === 'pending') {
+      await notifyAdmins({
+        type: 'admin_toxic_comment',
+        title: 'Toxic reply needs review',
+        message: trimMessage(text || 'A reply was flagged by safety checks.', 120),
+        href: '/admin/flagged',
+        metadata: {
+          targetType: 'Comment',
+          targetId: comment._id,
+          postId: post._id,
+          moderationStatus: comment.moderationStatus,
+        },
+      });
+    }
+
+    if (String(parentComment.authorId) !== String(req.user)) {
+      await createNotification({
+        recipientId: parentComment.authorId,
+        type: 'comment_reply',
+        title: 'New reply to your comment',
+        message: `${user.anonymousName} replied: ${trimMessage(text, 140)}`,
+        href: `/posts/${post._id}`,
+        metadata: {
+          postId: post._id,
+          commentId: parentComment._id,
+          replyId: comment._id,
+        },
+      });
+    }
 
     return res.status(201).json({ comment: await serializeComment(comment, req.user), toxicity });
   } catch (error) {
@@ -122,12 +186,27 @@ exports.updateComment = async (req, res) => {
     if (String(comment.authorId) !== req.user) {
       return res.status(403).json({ message: 'Not allowed to edit this comment' });
     }
-    if (!text?.trim()) return res.status(400).json({ message: 'Comment text is required' });
+    const textError = validateCommentText(text, 'Comment');
+    if (textError) return res.status(400).json({ message: textError });
 
     comment.text = text.trim();
     const { toxicity, moderationFields } = await buildToxicityModeration(comment.text);
     Object.assign(comment, moderationFields);
     await comment.save();
+    if (moderationFields?.adminReviewStatus === 'pending') {
+      await notifyAdmins({
+        type: 'admin_toxic_comment',
+        title: 'Edited comment needs review',
+        message: trimMessage(comment.text || 'A comment was flagged by safety checks.', 120),
+        href: '/admin/flagged',
+        metadata: {
+          targetType: 'Comment',
+          targetId: comment._id,
+          postId: comment.postId,
+          moderationStatus: comment.moderationStatus,
+        },
+      });
+    }
     return res.json({ comment: await serializeComment(comment, req.user), toxicity });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -142,8 +221,14 @@ exports.deleteComment = async (req, res) => {
       return res.status(403).json({ message: 'Not allowed to delete this comment' });
     }
 
-    await Comment.deleteMany({ parentCommentId: comment._id });
-    await Comment.deleteOne({ _id: comment._id });
+    const commentsToDelete = await Comment.find({
+      $or: [{ _id: comment._id }, { parentCommentId: comment._id }],
+    }).select('_id');
+    const commentIds = commentsToDelete.map((item) => item._id);
+
+    await Comment.deleteMany({ _id: { $in: commentIds } });
+    await CommentVote.deleteMany({ commentId: { $in: commentIds } });
+    await Report.deleteMany({ targetId: { $in: commentIds }, targetType: 'Comment' });
     return res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
     return res.status(500).json({ message: error.message });

@@ -1,3 +1,5 @@
+const { POST_CATEGORIES } = require('../utils/validation');
+
 const mongoose = require('mongoose');
 
 const postSchema = new mongoose.Schema({
@@ -16,14 +18,20 @@ const postSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    enum: POST_CATEGORIES
   },
   text: {
-    type: String
+    type: String,
+    trim: true,
+    maxlength: 1000
   },
   tags: [
     {
-      type: String
+      type: String,
+      trim: true,
+      maxlength: 24
     }
   ],
   image: {
@@ -37,6 +45,49 @@ const postSchema = new mongoose.Schema({
     height: Number,
     format: String,
     bytes: Number
+  },
+  poll: {
+    options: [
+      {
+        text: {
+          type: String,
+          trim: true,
+          maxlength: 120,
+        },
+        votes: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
+      }
+    ],
+    voters: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        optionIndex: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        votedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      }
+    ],
+    duration: {
+      type: String,
+      enum: ['6h', '12h', '24h', '48h'],
+      default: null,
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
   },
   votes: {
     type: Number,

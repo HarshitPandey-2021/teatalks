@@ -276,7 +276,7 @@ export default function SearchDropdown({ query, posts = [], trendingTags = DEFAU
                   fontFamily: "'Plus Jakarta Sans', sans-serif",
                   fontWeight: 700, fontSize: '0.875rem', color: '#7b766e',
                   marginBottom: '0.125rem',
-                }}>No results for "{query}"</p>
+                }}>No results for &ldquo;{query}&rdquo;</p>
                 <p style={{ fontSize: '0.75rem', color: '#b3aca3' }}>
                   Try different keywords or tags
                 </p>

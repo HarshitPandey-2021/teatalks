@@ -5,6 +5,7 @@ const Post = require('../models/posts');
 const Comment = require('../models/comment');
 const mongoose = require('mongoose');
 const { buildAdminModerationFields } = require('../services/contentModerationService');
+const { createNotification, trimMessage } = require('../services/notificationService');
 
 function getSinceDate(days = 1) {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
@@ -31,8 +32,14 @@ function getMainReason(item) {
   return 'Needs review';
 }
 
-function buildFlaggedItem(item, type, reportCount = 0) {
+function buildFlaggedItem(item, type, reportMeta = {}) {
   const moderationScore = Number(item?.moderationScore || 0);
+  const reportCount = Number(reportMeta?.reportCount || 0);
+  const activityAt =
+    reportMeta?.latestReportAt ||
+    item?.moderatedAt ||
+    item?.hiddenAt ||
+    item?.createdAt;
   return {
     id: String(item._id),
     type: type.toLowerCase(),
@@ -50,10 +57,17 @@ function buildFlaggedItem(item, type, reportCount = 0) {
     reportCount,
     moderationScore: Math.round(moderationScore * 100),
     mainReason: getMainReason(item),
-    createdAt: item.createdAt,
+    createdAt: activityAt,
+    activityAt,
     visibility: item.visibility || 'visible',
     moderationStatus: item.moderationStatus || 'normal',
     hiddenReason: item.hiddenReason || '',
+    reason: reportMeta?.latestReason || getMainReason(item),
+    reporterId: reportMeta?.latestReporter || {
+      anonymousName: 'Auto moderation',
+      emoji: '🤖',
+      email: 'Safety system',
+    },
   };
 }
 
@@ -73,6 +87,124 @@ function parsePagination(query) {
   const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
   const skip = (page - 1) * limit;
   return { page, limit, skip };
+}
+
+async function getActionablePendingReports() {
+  const pendingReports = await Report.find({ status: 'pending' })
+    .sort({ createdAt: -1 })
+    .populate('reporterId', 'anonymousName emoji email');
+
+  if (pendingReports.length === 0) {
+    return [];
+  }
+
+  const postIds = pendingReports
+    .filter((report) => report.targetType === 'Post')
+    .map((report) => report.targetId);
+  const commentIds = pendingReports
+    .filter((report) => report.targetType === 'Comment')
+    .map((report) => report.targetId);
+
+  const [posts, comments] = await Promise.all([
+    postIds.length
+      ? Post.find({ _id: { $in: postIds } }).select('_id text category anonymousName anonymousEmoji authorId moderationScore moderationStatus adminReviewStatus moderationReasons hiddenReason visibility hiddenAt moderatedAt createdAt')
+      : Promise.resolve([]),
+    commentIds.length
+      ? Comment.find({ _id: { $in: commentIds } }).select('_id text postId category anonymousName anonymousEmoji authorId moderationScore moderationStatus adminReviewStatus moderationReasons hiddenReason visibility hiddenAt moderatedAt createdAt')
+      : Promise.resolve([]),
+  ]);
+
+  const postMap = new Map(posts.map((item) => [String(item._id), item]));
+  const commentMap = new Map(comments.map((item) => [String(item._id), item]));
+  const actionableReports = [];
+  const orphanedReportIds = [];
+
+  pendingReports.forEach((report) => {
+    const targetId = String(report.targetId);
+    const target = report.targetType === 'Post' ? postMap.get(targetId) : commentMap.get(targetId);
+
+    if (!target) {
+      orphanedReportIds.push(report._id);
+      return;
+    }
+
+    actionableReports.push({ report, target });
+  });
+
+  if (orphanedReportIds.length > 0) {
+    await Report.updateMany(
+      { _id: { $in: orphanedReportIds }, status: 'pending' },
+      { $set: { status: 'resolved' } }
+    );
+  }
+
+  return actionableReports;
+}
+
+async function loadFlaggedContentItems({ status = 'pending', type = 'all', limit = 200 } = {}) {
+  const actionablePendingReports = await getActionablePendingReports();
+  const groupedReportMap = new Map();
+
+  actionablePendingReports.forEach(({ report }) => {
+    const key = `${report.targetType}:${String(report.targetId)}`;
+    const current = groupedReportMap.get(key) || { reportCount: 0, latestReportAt: null, latestReason: '', latestReporter: null };
+    groupedReportMap.set(key, {
+      reportCount: current.reportCount + 1,
+      latestReportAt:
+        !current.latestReportAt || new Date(report.createdAt) > new Date(current.latestReportAt)
+          ? report.createdAt
+          : current.latestReportAt,
+      latestReason:
+        !current.latestReportAt || new Date(report.createdAt) >= new Date(current.latestReportAt)
+          ? report.reason
+          : current.latestReason,
+      latestReporter:
+        !current.latestReportAt || new Date(report.createdAt) >= new Date(current.latestReportAt)
+          ? report.reporterId
+          : current.latestReporter,
+    });
+  });
+
+  const pendingModerationQuery = {
+    adminReviewStatus: 'pending',
+    moderationStatus: { $in: ['toxic', 'reported'] },
+  };
+
+  const [posts, comments] = await Promise.all([
+    type === 'Comment'
+      ? Promise.resolve([])
+      : Post.find(pendingModerationQuery).sort({ createdAt: -1 }).limit(200),
+    type === 'Post'
+      ? Promise.resolve([])
+      : Comment.find(pendingModerationQuery).sort({ createdAt: -1 }).limit(200),
+  ]);
+
+  const itemMap = new Map();
+  const pushItem = (doc, docType) => {
+    const key = `${docType}:${String(doc._id)}`;
+    itemMap.set(key, buildFlaggedItem(doc, docType, groupedReportMap.get(key) || {}));
+  };
+
+  posts.forEach((item) => pushItem(item, 'Post'));
+  comments.forEach((item) => pushItem(item, 'Comment'));
+
+  actionablePendingReports.forEach(({ report, target }) => {
+    if (type !== 'all' && report.targetType !== type) return;
+    const key = `${report.targetType}:${String(report.targetId)}`;
+    if (!itemMap.has(key)) {
+      itemMap.set(key, buildFlaggedItem(target, report.targetType, groupedReportMap.get(key) || {}));
+    }
+  });
+
+  const items = Array.from(itemMap.values())
+    .filter((item) => {
+      if (status === 'all') return true;
+      if (status === 'reviewed') return item.status === 'reviewed';
+      return item.status === 'pending';
+    })
+    .sort((a, b) => new Date(b.activityAt || b.createdAt) - new Date(a.activityAt || a.createdAt));
+
+  return items.slice(0, limit);
 }
 
 exports.listUsers = async (req, res) => {
@@ -280,15 +412,16 @@ exports.updateReportStatus = async (req, res) => {
 exports.getOverview = async (req, res) => {
   try {
     const since = getSinceDate(1);
+    const pendingFlaggedItems = await loadFlaggedContentItems({ status: 'pending', type: 'all', limit: 200 });
+    const pendingReports = pendingFlaggedItems.length;
+    const recentReports = pendingFlaggedItems.slice(0, 5);
 
     const [
       totalPosts,
       totalComments,
       totalUsers,
-      pendingReports,
       hiddenPosts,
       hiddenComments,
-      recentReports,
       recentActions,
       postsToday,
       commentsToday,
@@ -299,13 +432,8 @@ exports.getOverview = async (req, res) => {
       Post.countDocuments({}),
       Comment.countDocuments({}),
       User.countDocuments({}),
-      Report.countDocuments({ status: 'pending' }),
       Post.countDocuments({ visibility: 'hidden' }),
       Comment.countDocuments({ visibility: 'hidden' }),
-      Report.find({ status: 'pending' })
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .populate('reporterId', 'anonymousName emoji email'),
       AdminAction.find({})
         .sort({ createdAt: -1 })
         .limit(20),
@@ -321,7 +449,7 @@ exports.getOverview = async (req, res) => {
         const Model = report.targetType === 'Post' ? Post : Comment;
         const target = await Model.findById(report.targetId).select('text category anonymousName anonymousEmoji');
         return {
-          id: String(report._id),
+          id: report.id || `${report.targetType || report.type || 'item'}-${report.targetId || report._id || report.createdAt}`,
           title: target?.category
             ? `${report.targetType} in ${target.category}`
             : `${report.targetType} Report`,
@@ -339,7 +467,7 @@ exports.getOverview = async (req, res) => {
     const actionsToday = recentActions.filter((action) => action.createdAt >= since).length;
     const avgQueueMinutes = pendingReports > 0 && recentReports.length > 0
       ? Math.round(
-          recentReports.reduce((sum, report) => sum + ((Date.now() - new Date(report.createdAt).getTime()) / 60000), 0) /
+          recentReports.reduce((sum, report) => sum + ((Date.now() - new Date(report.activityAt || report.createdAt).getTime()) / 60000), 0) /
           recentReports.length
         )
       : 0;
@@ -370,108 +498,7 @@ exports.listFlaggedContent = async (req, res) => {
   try {
     const { status = 'pending', type = 'all' } = req.query;
     const { page, limit } = parsePagination(req.query);
-    const reportStatusFilter =
-      status === 'pending'
-        ? 'pending'
-        : status === 'reviewed'
-          ? { $in: ['reviewed', 'resolved'] }
-          : { $in: ['pending', 'reviewed', 'resolved'] };
-
-    const reportQuery = {
-      status: reportStatusFilter,
-      ...(type === 'all' ? {} : { targetType: type }),
-    };
-
-    const groupedReports = await Report.aggregate([
-      { $match: reportQuery },
-      {
-        $group: {
-          _id: { targetType: '$targetType', targetId: '$targetId' },
-          reportCount: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const postIdsFromReports = groupedReports
-      .filter((item) => item._id.targetType === 'Post')
-      .map((item) => item._id.targetId);
-    const commentIdsFromReports = groupedReports
-      .filter((item) => item._id.targetType === 'Comment')
-      .map((item) => item._id.targetId);
-
-    const reviewStatusFilter = status === 'all' ? { $in: ['pending', 'reviewed', 'none'] } : status;
-    const hiddenQuery = {
-      visibility: 'hidden',
-      adminReviewStatus: reviewStatusFilter,
-    };
-
-    const postQuery =
-      type === 'Comment'
-        ? null
-        : {
-            $or: [
-              hiddenQuery,
-              ...(postIdsFromReports.length ? [{ _id: { $in: postIdsFromReports } }] : []),
-            ],
-          };
-
-    const commentQuery =
-      type === 'Post'
-        ? null
-        : {
-            $or: [
-              hiddenQuery,
-              ...(commentIdsFromReports.length ? [{ _id: { $in: commentIdsFromReports } }] : []),
-            ],
-          };
-
-    const [posts, comments] = await Promise.all([
-      postQuery ? Post.find(postQuery).sort({ createdAt: -1 }).limit(200) : Promise.resolve([]),
-      commentQuery ? Comment.find(commentQuery).sort({ createdAt: -1 }).limit(200) : Promise.resolve([]),
-    ]);
-
-    const contentIds = [...posts.map((item) => item._id), ...comments.map((item) => item._id)];
-
-    const reportMap = new Map(
-      groupedReports.map((item) => [
-        `${String(item._id.targetType)}:${String(item._id.targetId)}`,
-        item.reportCount,
-      ])
-    );
-
-    // Include report counts for hidden items that may not appear in the grouped report set.
-    if (contentIds.length > 0) {
-      const missingReportCounts = await Report.aggregate([
-        {
-          $match: {
-            targetId: { $in: contentIds },
-            ...(type === 'all' ? {} : { targetType: type }),
-          },
-        },
-        {
-          $group: {
-            _id: { targetId: '$targetId', targetType: '$targetType' },
-            reportCount: { $sum: 1 },
-          },
-        },
-      ]);
-      missingReportCounts.forEach((item) => {
-        const key = `${String(item._id.targetType)}:${String(item._id.targetId)}`;
-        if (!reportMap.has(key)) {
-          reportMap.set(key, item.reportCount);
-        }
-      });
-    }
-
-    const items = [
-      ...posts.map((item) => buildFlaggedItem(item, 'Post', reportMap.get(`Post:${String(item._id)}`) || 0)),
-      ...comments.map((item) => buildFlaggedItem(item, 'Comment', reportMap.get(`Comment:${String(item._id)}`) || 0)),
-    ]
-      .filter((item) => {
-        if (status === 'all') return true;
-        return item.status === status;
-      })
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const items = await loadFlaggedContentItems({ status, type, limit: 400 });
 
     const start = (page - 1) * limit;
     return res.json({ items: items.slice(start, start + limit), page, limit, total: items.length });
@@ -503,6 +530,17 @@ exports.updateContentModeration = async (req, res) => {
     Object.assign(content, buildAdminModerationFields(status, reason, req.user));
     await content.save();
 
+    await Report.updateMany(
+      {
+        targetId: content._id,
+        targetType,
+        status: 'pending',
+      },
+      {
+        $set: { status: 'resolved' },
+      }
+    );
+
     await AdminAction.create({
       adminId: req.user,
       actionType: targetType === 'Post' ? 'moderate_post' : 'moderate_comment',
@@ -513,6 +551,30 @@ exports.updateContentModeration = async (req, res) => {
         status,
       },
     });
+
+    if (content.authorId) {
+      const contentHref =
+        targetType === 'Post'
+          ? `/posts/${content._id}`
+          : `/posts/${content.postId}`;
+
+      await createNotification({
+        recipientId: content.authorId,
+        type: status === 'normal' ? 'content_restored' : 'content_removed',
+        title: status === 'normal' ? 'Your content was restored' : 'Your content was removed',
+        message:
+          status === 'normal'
+            ? `${targetType} review is complete. Your content is visible again.`
+            : `${targetType} review is complete. ${trimMessage(reason || 'The content violated moderation guidelines.', 150)}`,
+        href: contentHref,
+        metadata: {
+          targetType,
+          targetId: content._id,
+          postId: content.postId || content._id,
+          status,
+        },
+      });
+    }
 
     return res.json({
       message: `${targetType} moderation updated`,

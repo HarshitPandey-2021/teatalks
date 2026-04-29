@@ -6,10 +6,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
+import { useToast } from '@/context/ToastContext'
 import api from '@/lib/axios'
+import { BRANCH_OPTIONS, YEAR_OPTIONS, validatePostText, validateTags } from '@/lib/validation'
 
-const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace']
-const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']
 const CATEGORIES = ['Academic', 'Hostel', 'Rants', 'General', 'Reviews']
 
 const STREAK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -24,7 +24,12 @@ function timeAgo(d) {
   return `${Math.floor(s / 86400)}d ago`
 }
 function fmt(n) { if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'; return String(n) }
-function daysSince(d) { return Math.floor((Date.now() - new Date(d).getTime()) / 86400000) }
+function daysSince(d) {
+  if (!d) return 0
+  const timestamp = new Date(d).getTime()
+  if (Number.isNaN(timestamp)) return 0
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86400000))
+}
 
 function getDayKey(value) {
   const d = new Date(value)
@@ -61,6 +66,37 @@ function computeStreaks(posts) {
   }
 
   return { currentStreak: current, longestStreak: longest }
+}
+
+function getChronologicalPosts(posts) {
+  return [...posts].filter((post) => post?.createdAt).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+}
+
+function getKarmaEarnedDate(posts, target) {
+  let total = 0
+  for (const post of posts) {
+    total += Math.max(0, post?.score || 0)
+    if (total >= target) return post.createdAt
+  }
+  return null
+}
+
+function getStreakEarnedDate(posts, target) {
+  const dayKeys = Array.from(new Set(posts.map((post) => getDayKey(post.createdAt)))).sort()
+  if (!dayKeys.length) return null
+  if (target <= 1) return dayKeys[0]
+
+  let running = 1
+  for (let i = 1; i < dayKeys.length; i++) {
+    const prev = new Date(dayKeys[i - 1])
+    const curr = new Date(dayKeys[i])
+    const diff = Math.round((curr - prev) / 86400000)
+
+    running = diff === 1 ? running + 1 : 1
+    if (running >= target) return dayKeys[i]
+  }
+
+  return null
 }
 
 function KarmaRing({ current, target, size = 76, stroke = 4 }) {
@@ -200,6 +236,7 @@ function CustomSelect({ value, options, onChange, icon, label }) {
 
 export default function ProfilePage() {
   const { user, isAuthenticated, loading: authLoading, logout, updateProfile } = useAuth()
+  const { error: showErrorToast, warning: showWarningToast } = useToast()
   const router = useRouter()
   const [myPosts, setMyPosts] = useState([])
   const [profileLoading, setProfileLoading] = useState(true)
@@ -215,14 +252,14 @@ export default function ProfilePage() {
 
   // Editable fields
   const [editBranch, setEditBranch] = useState(user?.branch || 'CSE')
-  const [editYear, setEditYear] = useState(user?.year || '3rd Year')
+  const [editYear, setEditYear] = useState(user?.year || '1st Year')
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [settingsChanged, setSettingsChanged] = useState(false)
 
   // Track changes
   useEffect(() => {
     const branchChanged = editBranch !== (user?.branch || 'CSE')
-    const yearChanged = editYear !== (user?.year || '3rd Year')
+    const yearChanged = editYear !== (user?.year || '1st Year')
     setSettingsChanged(branchChanged || yearChanged)
     setSettingsSaved(false)
   }, [editBranch, editYear, user])
@@ -231,7 +268,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (showSettings) {
       setEditBranch(user?.branch || 'CSE')
-      setEditYear(user?.year || '3rd Year')
+      setEditYear(user?.year || '1st Year')
       setSettingsSaved(false)
       setSettingsChanged(false)
     }
@@ -249,7 +286,7 @@ export default function ProfilePage() {
         setShowSettings(false)
       }, 1200)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Failed to update profile')
+      showErrorToast(error?.response?.data?.message || 'Failed to update profile')
     }
   }
 
@@ -282,7 +319,7 @@ export default function ProfilePage() {
     const totalComments = myPosts.reduce((acc, p) => acc + (p.commentCount || 0), 0)
     const karma = myPosts.reduce((acc, p) => acc + Math.max(0, p.score || 0), 0)
     const karmaNextLevel = Math.max(500, Math.ceil((karma + 1) / 500) * 500)
-    const joinedDate = user?.createdAt || (myPosts[myPosts.length - 1]?.createdAt || new Date().toISOString())
+    const joinedDate = user?.createdAt || myPosts[myPosts.length - 1]?.createdAt || null
 
     const { currentStreak, longestStreak } = computeStreaks(myPosts)
 
@@ -309,14 +346,22 @@ export default function ProfilePage() {
     }
   })()
 
+  const chronologicalPosts = getChronologicalPosts(myPosts)
+  const firstPostDate = chronologicalPosts[0]?.createdAt || null
+  const karma100Date = getKarmaEarnedDate(chronologicalPosts, 100)
+  const karma1000Date = getKarmaEarnedDate(chronologicalPosts, 1000)
+  const streak7Date = getStreakEarnedDate(chronologicalPosts, 7)
+  const streak30Date = getStreakEarnedDate(chronologicalPosts, 30)
+  const viralDate = chronologicalPosts.find((post) => (post.score || 0) >= 500)?.createdAt || null
+
   const computedBadges = [
-    { id: 'first-post', icon: '🎯', label: 'First Post', desc: 'Published your first anonymous post', earned: ds.totalPosts >= 1 },
-    { id: 'karma-100', icon: '⭐', label: 'Rising Star', desc: 'Earned 100+ karma', earned: ds.karma >= 100, progress: Math.min(ds.karma, 100), total: 100 },
-    { id: 'streak-7', icon: '🔥', label: 'On Fire', desc: '7-day posting streak', earned: ds.longestStreak >= 7, progress: Math.min(ds.longestStreak, 7), total: 7 },
-    { id: 'karma-1000', icon: '💎', label: 'Diamond Mind', desc: 'Earned 1000+ karma', earned: ds.karma >= 1000, progress: Math.min(ds.karma, 1000), total: 1000 },
-    { id: 'viral', icon: '🚀', label: 'Going Viral', desc: 'Get 500+ upvotes on a post', earned: myPosts.some((p) => (p.score || 0) >= 500) },
-    { id: 'legend', icon: '👑', label: 'Legendary', desc: '30-day posting streak', earned: ds.longestStreak >= 30, progress: Math.min(ds.longestStreak, 30), total: 30 },
-  ].map((b) => (b.earned ? { ...b, earnedDate: new Date().toISOString() } : b))
+    { id: 'first-post', icon: '🎯', label: 'First Post', desc: 'Published your first anonymous post', earned: ds.totalPosts >= 1, earnedDate: firstPostDate },
+    { id: 'karma-100', icon: '⭐', label: 'Rising Star', desc: 'Earned 100+ karma', earned: ds.karma >= 100, earnedDate: karma100Date, progress: Math.min(ds.karma, 100), total: 100 },
+    { id: 'streak-7', icon: '🔥', label: 'On Fire', desc: '7-day posting streak', earned: ds.longestStreak >= 7, earnedDate: streak7Date, progress: Math.min(ds.longestStreak, 7), total: 7 },
+    { id: 'karma-1000', icon: '💎', label: 'Diamond Mind', desc: 'Earned 1000+ karma', earned: ds.karma >= 1000, earnedDate: karma1000Date, progress: Math.min(ds.karma, 1000), total: 1000 },
+    { id: 'viral', icon: '🚀', label: 'Going Viral', desc: 'Get 500+ upvotes on a post', earned: Boolean(viralDate), earnedDate: viralDate },
+    { id: 'legend', icon: '👑', label: 'Legendary', desc: '30-day posting streak', earned: ds.longestStreak >= 30, earnedDate: streak30Date, progress: Math.min(ds.longestStreak, 30), total: 30 },
+  ].map((badge) => (badge.earned ? badge : { ...badge, earnedDate: null }))
 
   const handleDeletePost = async (postId) => {
     setDeleteLoading(true)
@@ -325,7 +370,7 @@ export default function ProfilePage() {
       setMyPosts((prev) => prev.filter((p) => p._id !== postId))
       setDeleteTarget(null)
     } catch (error) {
-      alert(error?.response?.data?.message || 'Could not delete post')
+      showErrorToast(error?.response?.data?.message || 'Could not delete post')
     } finally {
       setDeleteLoading(false)
     }
@@ -349,10 +394,20 @@ export default function ProfilePage() {
   const submitEditPost = async () => {
     if (!editModalPost) return
     const text = editForm.text.trim()
-    if (!text) return alert('Post text cannot be empty')
+    const textError = validatePostText(text)
+    if (textError) {
+      showWarningToast(textError, { title: 'Missing Content' })
+      return
+    }
     setEditLoading(true)
     try {
-      const tags = editForm.tags.split(',').map((t) => t.trim()).filter(Boolean)
+      const tagResult = validateTags(editForm.tags.split(',').map((t) => t.trim()).filter(Boolean))
+      if (tagResult.error) {
+        showWarningToast(tagResult.error, { title: 'Invalid Tags' })
+        setEditLoading(false)
+        return
+      }
+      const tags = tagResult.value
       const res = await api.patch(`/posts/${editModalPost._id}`, { text, category: editForm.category, tags })
       const updated = res?.data?.post
       const isVisible = updated?.visibility === 'visible' || updated?.visibility === undefined || updated?.visibility === null
@@ -361,11 +416,11 @@ export default function ProfilePage() {
         setMyPosts((prev) => prev.map((p) => (p._id === editModalPost._id ? { ...p, ...updated } : p)))
       } else {
         setMyPosts((prev) => prev.filter((p) => p._id !== editModalPost._id))
-        alert('Your post was hidden for review because it was detected as toxic.')
+        showWarningToast('Your post was hidden for review because it was detected as toxic.', { title: 'Post Hidden' })
       }
       closeEditModal()
     } catch (error) {
-      alert(error?.response?.data?.message || 'Could not update post')
+      showErrorToast(error?.response?.data?.message || 'Could not update post')
       setEditLoading(false)
     }
   }
