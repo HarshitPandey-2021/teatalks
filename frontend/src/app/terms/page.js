@@ -1,11 +1,9 @@
-
-
 export default function Terms() {
   return (
     <main
       style={{
         fontFamily: "'Poppins', sans-serif",
-        background: "linear-gradient(160deg, #FFB84D, #FF8FC4, #FF5733)", // lighter pastel gradient
+        background: "linear-gradient(160deg, #FFD6A5, #FF9AA2, #FF6EC4)", 
         minHeight: "100vh",
         paddingBottom: "80px",
       }}
@@ -17,121 +15,117 @@ export default function Terms() {
           maxWidth: "1200px",
           margin: "0 auto",
           padding: "60px 20px",
-          color: "#1a1a1a",
         }}
       >
 
         <div className="mascot-bg"></div>
 
-        {/* TERMS OF USE */}
-        <section className="section" style={{ marginBottom: "60px", textAlign: "center" }}>
-          <h1 style={{
-            fontSize: "3rem",
-            fontWeight: "800",
-            color: "#FFF8F0",
-            marginBottom: "25px",
-            textShadow: "2px 2px 12px rgba(0,0,0,0.2)"
-          }}>
-            Terms of Use
-          </h1>
+        {/* 🌟 MAIN GLASS CARD */}
+        <div
+          style={{
+            background: "rgba(255,255,255,0.88)",
+            backdropFilter: "blur(10px)",
+            borderRadius: "28px",
+            padding: "50px 30px",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
+          }}
+        >
 
-          <p style={{
-            fontSize: "1.15rem",
-            lineHeight: "1.9",
-            color: "#222",
-            maxWidth: "850px",
-            margin: "20px auto",
-          }}>
-            By accessing or using TeaTalks, you agree to engage respectfully and responsibly. 
-            Our platform is designed to foster thoughtful discussion, safe exploration, and the 
-            free exchange of ideas within our student community.
-          </p>
-        </section>
+          {/* TERMS */}
+          <section style={{ marginBottom: "60px", textAlign: "center" }}>
+            <h1 style={{
+              fontSize: "3rem",
+              fontWeight: "800",
+              marginBottom: "25px",
+              background: "linear-gradient(90deg,#ff6ec4,#ff8c42,#ffd93d)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}>
+              Terms of Use
+            </h1>
 
-        {/* COMMUNITY STANDARDS */}
-        <section className="section" style={{ marginBottom: "60px", textAlign: "center" }}>
-          <h2 style={{
-            fontSize: "2.5rem",
-            fontWeight: "700",
-            color: "#FFF8F0",
-            marginBottom: "30px",
-            textShadow: "1px 1px 8px rgba(0,0,0,0.2)"
-          }}>
-            Community Standards
-          </h2>
+            <p style={{
+              fontSize: "1.15rem",
+              lineHeight: "1.9",
+              color: "#374151",
+              maxWidth: "850px",
+              margin: "20px auto",
+            }}>
+              By accessing TeaTalks, you step into a shared space shaped by trust, respect, and thoughtful interaction. The platform is designed to encourage open expression while maintaining a sense of responsibility toward the community that inhabits it.
+            </p>
+          </section>
 
-          <ul style={{
-            listStyle: "none",
-            padding: 0,
-            maxWidth: "700px",
-            margin: "0 auto",
-            display: "grid",
-            gap: "15px",
-          }}>
-            <li style={{
-              background: "rgba(255,255,255,0.4)",
-              borderRadius: "15px",
-              padding: "15px 20px",
-              boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-              fontWeight: "600",
-              color: "#222"
-            }}>No hate speech – ensure all communication is respectful and inclusive.</li>
-            <li style={{
-              background: "rgba(255,255,255,0.4)",
-              borderRadius: "15px",
-              padding: "15px 20px",
-              boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-              fontWeight: "600",
-              color: "#222"
-            }}>No harassment – do not target or intimidate any member.</li>
-            <li style={{
-              background: "rgba(255,255,255,0.4)",
-              borderRadius: "15px",
-              padding: "15px 20px",
-              boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-              fontWeight: "600",
-              color: "#222"
-            }}>No threats – all users must feel safe while engaging on the platform.</li>
-            <li style={{
-              background: "rgba(255,255,255,0.4)",
-              borderRadius: "15px",
-              padding: "15px 20px",
-              boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-              fontWeight: "600",
-              color: "#222"
-            }}>No abusive language – maintain constructive and courteous conversations.</li>
-          </ul>
-        </section>
+          {/* COMMUNITY */}
+          <section style={{ marginBottom: "60px", textAlign: "center" }}>
+            <h2 style={{
+              fontSize: "2.4rem",
+              fontWeight: "700",
+              marginBottom: "30px",
+              background: "linear-gradient(90deg,#ff6ec4,#ffb347)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}>
+              Community Standards
+            </h2>
 
-        {/* CONTENT MODERATION */}
-        <section className="section" style={{ marginBottom: "60px", textAlign: "center" }}>
-          <h2 style={{
-            fontSize: "2.5rem",
-            fontWeight: "700",
-            color: "#FFF8F0",
-            marginBottom: "30px",
-            textShadow: "1px 1px 8px rgba(0,0,0,0.2)"
-          }}>
-            Content Moderation
-          </h2>
+            <ul style={{
+              listStyle: "none",
+              padding: 0,
+              maxWidth: "700px",
+              margin: "0 auto",
+              display: "grid",
+              gap: "15px",
+            }}>
+              {[
+                "No hate speech — ensure all communication remains respectful and inclusive.",
+                "No harassment — interactions must never target or intimidate others.",
+                "No threats — every user deserves a safe and secure environment.",
+                "No abusive language — conversations should remain constructive and mindful.",
+              ].map((item, i) => (
+                <li
+                  key={i}
+                  style={{
+                    background: "rgba(255,255,255,0.6)",
+                    borderRadius: "16px",
+                    padding: "16px 20px",
+                    boxShadow: "0 8px 22px rgba(0,0,0,0.08)",
+                    fontWeight: "600",
+                    color: "#374151",
+                    transition: "0.3s ease",
+                  }}
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </section>
 
-          <p style={{
-            fontSize: "1.15rem",
-            lineHeight: "1.9",
-            color: "#222",
-            maxWidth: "800px",
-            margin: "0 auto",
-          }}>
-            TeaTalks reserves the right to remove content that violates our community standards 
-            or poses harm to the community. Accounts found in violation of the rules may be 
-            suspended to maintain a safe, inclusive, and respectful environment for all users.
-          </p>
-        </section>
+          {/* MODERATION */}
+          <section style={{ textAlign: "center" }}>
+            <h2 style={{
+              fontSize: "2.4rem",
+              fontWeight: "700",
+              marginBottom: "30px",
+              background: "linear-gradient(90deg,#ff6ec4,#ffb347)",
+              WebkitBackgroundClip: "text",
+              color: "transparent"
+            }}>
+              Content Moderation
+            </h2>
 
+            <p style={{
+              fontSize: "1.15rem",
+              lineHeight: "1.9",
+              color: "#374151",
+              maxWidth: "800px",
+              margin: "0 auto",
+            }}>
+              TeaTalks reserves the right to review and remove content that disrupts the integrity of the platform or violates community guidelines. This ensures that the space remains balanced, respectful, and meaningful for everyone involved.
+            </p>
+          </section>
+
+        </div>
       </div>
-
-     
-
     </main>
   );
 }
