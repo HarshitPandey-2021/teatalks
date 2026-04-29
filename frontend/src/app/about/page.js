@@ -1,4 +1,12 @@
+'use client'
+
+import { useEffect } from 'react'
+
 export default function About() {
+  useEffect(() => {
+    document.title = "About | TeaTalks"
+  }, [])
+
   return (
     <main
       style={{
@@ -112,76 +120,83 @@ export default function About() {
               The Team Behind TeaTalks
             </h2>
 
-            <ul style={{
-              listStyle: "none",
-              padding: 0,
+            <div style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: "25px",
-              justifyItems: "center",
-              maxWidth: "900px",
+              maxWidth: "1000px",
               margin: "0 auto",
             }}>
 
               {/* SHAKTI */}
-              <li style={{
+              <div style={{
                 background: "linear-gradient(135deg,#ff9a44,#ff6ec4)",
-                borderRadius: "30px 18px 30px 18px",
-                padding: "25px",
-                width: "100%",
+                borderRadius: "24px",
+                padding: "30px 20px",
                 boxShadow: "0 12px 25px rgba(0,0,0,0.15)",
                 color: "#fff",
-                fontWeight: "700",
-                transition: "0.3s",
-              }}>
-                Shakti Ishan — Role
-              </li>
-
-              {/* SOMESH */}
-              <li style={{
-                background: "linear-gradient(135deg,#ff6ec4,#ff2400)",
-                borderRadius: "18px 30px 18px 30px",
-                padding: "25px",
-                width: "100%",
-                boxShadow: "0 12px 25px rgba(0,0,0,0.15)",
-                color: "#fff",
-                fontWeight: "700",
-                transition: "0.3s",
-              }}>
-                Somesh Pandey — Role
-              </li>
-
-              {/* SHIVA */}
-              <li style={{
-                background: "linear-gradient(135deg,#ffa500,#ff2400)",
-                borderRadius: "50px 20px 20px 50px",
-                padding: "25px",
-                width: "100%",
-                boxShadow: "0 12px 25px rgba(0,0,0,0.15)",
-                color: "#fff",
-                fontWeight: "700",
-                transition: "0.3s",
-              }}>
-                Shiva Singh — Role
-              </li>
+                textAlign: "center",
+                transition: "transform 0.3s ease",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-5px)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                <h3 style={{ fontSize: "1.25rem", fontWeight: "800", marginBottom: "8px" }}>Shakti Ishan</h3>
+                <p style={{ fontSize: "0.95rem", fontWeight: "600", opacity: 0.9 }}>Frontend Developer</p>
+              </div>
 
               {/* HARSHIT */}
-              <li style={{
-                background: "linear-gradient(135deg,#ff6ec4,#ffa500,#ff2400)",
-                borderRadius: "22px 22px 40px 40px",
-                padding: "25px",
-                width: "100%",
-                maxWidth: "220px",
+              <div style={{
+                background: "linear-gradient(135deg,#ff6ec4,#ffa500)",
+                borderRadius: "24px",
+                padding: "30px 20px",
                 boxShadow: "0 12px 25px rgba(0,0,0,0.15)",
                 color: "#fff",
-                fontWeight: "700",
-                margin: "0 auto",
-                transition: "0.3s",
-              }}>
-                Harshit Pandey — Role
-              </li>
+                textAlign: "center",
+                transition: "transform 0.3s ease",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-5px)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                <h3 style={{ fontSize: "1.25rem", fontWeight: "800", marginBottom: "8px" }}>Harshit Pandey</h3>
+                <p style={{ fontSize: "0.95rem", fontWeight: "600", opacity: 0.9 }}>Frontend Developer</p>
+              </div>
 
-            </ul>
+              {/* SHIVA */}
+              <div style={{
+                background: "linear-gradient(135deg,#ffa500,#ff2400)",
+                borderRadius: "24px",
+                padding: "30px 20px",
+                boxShadow: "0 12px 25px rgba(0,0,0,0.15)",
+                color: "#fff",
+                textAlign: "center",
+                transition: "transform 0.3s ease",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-5px)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                <h3 style={{ fontSize: "1.25rem", fontWeight: "800", marginBottom: "8px" }}>Shiva Singh</h3>
+                <p style={{ fontSize: "0.95rem", fontWeight: "600", opacity: 0.9 }}>Database & AI</p>
+              </div>
+
+              {/* SOMESH */}
+              <div style={{
+                background: "linear-gradient(135deg,#ff6ec4,#ff2400)",
+                borderRadius: "24px",
+                padding: "30px 20px",
+                boxShadow: "0 12px 25px rgba(0,0,0,0.15)",
+                color: "#fff",
+                textAlign: "center",
+                transition: "transform 0.3s ease",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-5px)"}
+              onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
+              >
+                <h3 style={{ fontSize: "1.25rem", fontWeight: "800", marginBottom: "8px" }}>Somesh Pandey</h3>
+                <p style={{ fontSize: "0.95rem", fontWeight: "600", opacity: 0.9 }}>Backend Developer</p>
+              </div>
+
+            </div>
           </section>
 
         </div>
