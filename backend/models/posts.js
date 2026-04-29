@@ -46,6 +46,49 @@ const postSchema = new mongoose.Schema({
     format: String,
     bytes: Number
   },
+  poll: {
+    options: [
+      {
+        text: {
+          type: String,
+          trim: true,
+          maxlength: 120,
+        },
+        votes: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
+      }
+    ],
+    voters: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: true,
+        },
+        optionIndex: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        votedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      }
+    ],
+    duration: {
+      type: String,
+      enum: ['6h', '12h', '24h', '48h'],
+      default: null,
+    },
+    expiresAt: {
+      type: Date,
+      default: null,
+    },
+  },
   votes: {
     type: Number,
     default: 0

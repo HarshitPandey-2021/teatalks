@@ -7,6 +7,7 @@ const {
   getPostById,
   updatePost,
   deletePost,
+  votePoll,
   votePost,
 } = require('../controllers/postController');
 const { createComment, listPostComments, createReply } = require('../controllers/commentController');
@@ -19,6 +20,7 @@ router.get('/:id', optionalProtect, getPostById);
 router.patch('/:id', protect, updatePost);
 router.delete('/:id', protect, deletePost);
 router.post('/:id/vote', protect, votePost);
+router.post('/:id/poll-vote', protect, votePoll);
 
 router.get('/:id/comments', optionalProtect, listPostComments);
 router.post('/:id/comments', protect, createComment);

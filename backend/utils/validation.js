@@ -15,6 +15,10 @@ const CAMPUS_NAME_MIN_LENGTH = 2;
 const CAMPUS_NAME_MAX_LENGTH = 80;
 const PROFESSOR_NAME_MAX_LENGTH = 120;
 const DEPARTMENT_MAX_LENGTH = 120;
+const MIN_POLL_OPTIONS = 2;
+const MAX_POLL_OPTIONS = 6;
+const MAX_POLL_OPTION_LENGTH = 120;
+const POLL_DURATIONS = ['6h', '12h', '24h', '48h'];
 
 const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'ME', 'CE', 'IT', 'AI/ML', 'Data Science', 'Biotech', 'Chemical', 'Aerospace'];
 const YEAR_OPTIONS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
@@ -120,6 +124,57 @@ function validatePostText(value = '') {
   return null;
 }
 
+function validatePoll(value) {
+  if (value === undefined || value === null) {
+    return { value: null };
+  }
+
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    return { error: 'Poll must be an object' };
+  }
+
+  const rawOptions = Array.isArray(value.options) ? value.options : [];
+  const duration = String(value.duration || '').trim();
+
+  if (rawOptions.length < MIN_POLL_OPTIONS) {
+    return { error: `Poll must include at least ${MIN_POLL_OPTIONS} options` };
+  }
+
+  if (rawOptions.length > MAX_POLL_OPTIONS) {
+    return { error: `Poll can include at most ${MAX_POLL_OPTIONS} options` };
+  }
+
+  if (!POLL_DURATIONS.includes(duration)) {
+    return { error: `Poll duration must be one of: ${POLL_DURATIONS.join(', ')}` };
+  }
+
+  const normalizedOptions = [];
+  const seen = new Set();
+
+  for (const optionValue of rawOptions) {
+    const option = String(optionValue).trim();
+    if (!option) {
+      return { error: 'Poll options cannot be empty' };
+    }
+    if (option.length > MAX_POLL_OPTION_LENGTH) {
+      return { error: `Each poll option must be at most ${MAX_POLL_OPTION_LENGTH} characters` };
+    }
+    const key = option.toLowerCase();
+    if (seen.has(key)) {
+      return { error: 'Poll options must be unique' };
+    }
+    seen.add(key);
+    normalizedOptions.push(option);
+  }
+
+  return {
+    value: {
+      options: normalizedOptions,
+      duration,
+    },
+  };
+}
+
 function validateCommentText(value = '', label = 'Comment') {
   const normalized = String(value).trim();
   if (!normalized) return `${label} text is required`;
@@ -186,9 +241,12 @@ module.exports = {
   CAMPUS_NAME_MIN_LENGTH,
   COMMENT_MAX_LENGTH,
   MAX_REPORT_REASON_LENGTH,
+  MAX_POLL_OPTIONS,
   MAX_TAGS,
+  MIN_POLL_OPTIONS,
   OTP_LENGTH,
   PASSWORD_MESSAGE,
+  POLL_DURATIONS,
   POST_CATEGORIES,
   POST_MAX_LENGTH,
   POST_MIN_LENGTH,
@@ -203,6 +261,7 @@ module.exports = {
   validateCommentText,
   validateDepartment,
   validatePassword,
+  validatePoll,
   validatePostCategory,
   validatePostText,
   validateProfessorName,

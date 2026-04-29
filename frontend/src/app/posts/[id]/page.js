@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import CommentCard from '@/components/CommentCard'
 import CommentForm from '@/components/CommentForm'
+import PostPoll from '@/components/PostPoll'
 import ReportModal from '@/components/ReportModal'
 import PostCard from '@/components/PostCard'
 import { useToast } from '@/context/ToastContext'
@@ -656,12 +657,14 @@ export default function PostDetailPage() {
     Promise.all([fetchPost(params.id), fetchComments(params.id)])
       .then(([p, c]) => {
         setPost(p)
+        setPostVote(p?.userVote || null)
         setPostScore(p?.score || 0)
         setCommentCount(p?.commentCount || 0)
         setComments(c)
       })
       .catch(() => {
         setPost(null)
+        setPostVote(null)
         setPostScore(0)
         setCommentCount(0)
         setComments([])
@@ -903,6 +906,16 @@ export default function PostDetailPage() {
                   ))}
                 </div>
               )}
+
+              {post.poll?.options?.length >= 2 ? (
+                <PostPoll
+                  poll={post.poll}
+                  postId={post._id}
+                  onPollUpdate={(nextPoll) => {
+                    setPost((prev) => (prev ? { ...prev, poll: nextPoll } : prev))
+                  }}
+                />
+              ) : null}
             </div>
 
             {/* Image */}

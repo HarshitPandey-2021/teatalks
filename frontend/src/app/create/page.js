@@ -247,6 +247,10 @@ export default function CreatePostPage() {
         category: feedCategory,
         text: body.trim(),
         tags,
+        poll: pollOn ? {
+          options: pollOpts.map((option) => option.trim()).filter(Boolean),
+          duration: pollDur,
+        } : null,
         ...uploadPayload,
       })
 
@@ -267,7 +271,7 @@ export default function CreatePostPage() {
       setLoading(false)
       setErr(error.response?.data?.message || error.message || 'Failed to create post')
     }
-  }, [cat, body, tags, images, router, validate, uploadImageToCloudinary])
+  }, [cat, body, tags, images, pollOn, pollOpts, pollDur, router, validate, uploadImageToCloudinary])
 
   if (authLoading || !isAuthenticated) {
     return (

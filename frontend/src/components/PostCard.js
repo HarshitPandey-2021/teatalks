@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import ReportModal from './ReportModal'
+import PostPoll from './PostPoll'
 import api from '@/lib/axios'
 
 const CAT_STYLES = {
@@ -437,7 +438,7 @@ export default function PostCard({
 
           {/* Poll UI */}
           {poll && poll.options && poll.options.length >= 2 && (
-            <PollUI poll={poll} postId={_id} />
+            <PostPoll poll={poll} postId={_id} />
           )}
         </div>
 
