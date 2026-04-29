@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import AdminSidebar from '@/components/AdminSidebar'
 import api from '@/lib/axios'
+
+const ADMIN_OVERVIEW_REFRESH_INTERVAL_MS = 30000
 
 function timeAgo(date) {
   if (!date) return 'just now'
@@ -21,28 +23,55 @@ export default function AdminOverviewPage() {
   const router = useRouter()
   const [overview, setOverview] = useState(null)
   const [loadingData, setLoadingData] = useState(true)
+  const isRefreshingOverviewRef = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/login')
     if (!authLoading && isAuthenticated && user?.role !== 'admin') router.push('/feed')
   }, [authLoading, isAuthenticated, user, router])
 
-  useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'admin') return
+  const loadOverview = useCallback(async ({ silent = false } = {}) => {
+    if (!isAuthenticated || user?.role !== 'admin' || isRefreshingOverviewRef.current) return
 
-    const loadOverview = async () => {
-      try {
-        const res = await api.get('/admin/overview')
-        setOverview(res.data)
-      } catch (error) {
-        console.error('Failed to load admin overview', error)
-      } finally {
-        setLoadingData(false)
+    isRefreshingOverviewRef.current = true
+    if (!silent) {
+      setLoadingData(true)
+    }
+
+    try {
+      const res = await api.get('/admin/overview')
+      setOverview(res.data)
+    } catch (error) {
+      console.error('Failed to load admin overview', error)
+    } finally {
+      isRefreshingOverviewRef.current = false
+      setLoadingData(false)
+    }
+  }, [isAuthenticated, user?.role])
+
+  useEffect(() => {
+    loadOverview()
+  }, [loadOverview])
+
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== 'admin') return undefined
+
+    const handleRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        loadOverview({ silent: true })
       }
     }
 
-    loadOverview()
-  }, [isAuthenticated, user])
+    const intervalId = window.setInterval(handleRefresh, ADMIN_OVERVIEW_REFRESH_INTERVAL_MS)
+    window.addEventListener('focus', handleRefresh)
+    document.addEventListener('visibilitychange', handleRefresh)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', handleRefresh)
+      document.removeEventListener('visibilitychange', handleRefresh)
+    }
+  }, [isAuthenticated, user?.role, loadOverview])
 
   const stats = useMemo(() => {
     const data = overview?.stats || {}
