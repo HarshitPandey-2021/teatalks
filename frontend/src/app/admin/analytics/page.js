@@ -305,7 +305,7 @@ export default function AdminAnalyticsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
               {[
-                { label: 'Daily Active Rate', value: `${analytics.stats.engagementRate}%`, icon: 'groups', color: '#ec4899', bgColor: 'rgba(236, 72, 153, 0.1)' },
+                { label: 'User Growth rate', value: `${analytics.stats.engagementRate}%`, icon: 'groups', color: '#ec4899', bgColor: 'rgba(236, 72, 153, 0.1)' },
                 { label: 'Report Rate', value: `${analytics.stats.reportRate}%`, icon: 'flag', color: '#ea6c00', bgColor: 'rgba(234, 108, 0, 0.1)' },
                 { label: 'Content Safety', value: `${analytics.stats.safetyRate}%`, icon: 'verified', color: '#22c55e', bgColor: 'rgba(34, 197, 94, 0.1)' },
               ].map((metric, idx) => (
