@@ -7,10 +7,12 @@ import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import PostCard from '@/components/PostCard'
 import api from '@/lib/axios'
+import { Suspense } from "react";
+// import SearchClient from "./SearchClient";
 
 const DEFAULT_TRENDING_TAGS = ['#DBMS', '#MessFood', '#WiFi', '#CampusVibes', '#HostelLife', '#Exams']
 
-export default function SearchPage() {
+ function SearchClient() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -239,4 +241,12 @@ export default function SearchPage() {
       </main>
     </div>
   )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchClient />
+    </Suspense>
+  );
 }

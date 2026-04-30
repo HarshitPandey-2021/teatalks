@@ -23,6 +23,18 @@ main {
 }
 
 /* ============ AUTH PAGE ANIMATIONS ============ */
+/* ── NAVBAR OVERRIDES ── */
+.nav-link {
+  text-decoration: none;
+  color: #374151;
+  font-weight: 500;
+  font-size: 0.95rem;
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: #ec4899;
+}
 
 @keyframes spin {
   to { transform: rotate(360deg); }

@@ -1,13 +1,44 @@
+"use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Brewed from "@/components/Brewed";
 import HowItWorks from "@/components/HowItWorks";
 import Testimonial from "@/components/Testimonial";
-export const metadata = {
-  title: "Home | TeaTalks",
-  description: "Your Campus. Your Voice.",
-};
+
+
+
+// ✅ Counter Animation Component
+function AnimatedCounter({ target, suffix = "" }) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const duration = 2000; // 2 seconds
+    const steps = 60;
+    const increment = target / steps;
+    let current = 0;
+
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= target) {
+        setCount(target);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, duration / steps);
+
+    return () => clearInterval(timer);
+  }, [target]);
+
+  return <>{count.toLocaleString()}{suffix}</>;
+}
+
 export default function Home() {
+  useEffect(() => {
+    document.title = "About | TeaTalks"
+  }, [])
+
   return (
     <main style={{ background: "#ffffff" }}>
 
@@ -77,11 +108,11 @@ export default function Home() {
             }}
           >
             <Image
-  src="/phone.png"
-  alt="preview"
-  width={260}
-  height={520}
-  style={{
+              src="/phone.png"
+              alt="preview"
+              width={260}
+              height={520}
+              style={{
                 borderRadius: "16px",
                 boxShadow: "0 20px 50px rgba(0,0,0,0.12)",
               }}
@@ -90,7 +121,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= STATS ================= */}
+      {/* ================= ANIMATED STATS ================= */}
       <section style={{ padding: "40px 20px" }}>
         <div
           style={{
@@ -103,9 +134,9 @@ export default function Home() {
           }}
         >
           {[
-            { num: "10K+", label: "Voices Shared" },
-            { num: "50+", label: "Campuses" },
-            { num: "100K+", label: "Interactions" },
+            { num: 10000, label: "Voices Shared", suffix: "+" },
+            { num: 50, label: "Campuses", suffix: "+" },
+            { num: 100000, label: "Interactions", suffix: "+" },
           ].map((item, i) => (
             <div
               key={i}
@@ -128,7 +159,7 @@ export default function Home() {
                   color: "transparent",
                 }}
               >
-                {item.num}
+                <AnimatedCounter target={item.num} suffix={item.suffix} />
               </div>
               <p style={{ color: "#666", fontSize: "0.9rem" }}>
                 {item.label}
