@@ -77,17 +77,27 @@ async function sendViaBrevoApi({ toEmail, subject, text, html }) {
 
 async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel }) {
   const tx = getTransporter();
+  if (tx) {
+    try {
+      await tx.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@teatalks.local',
+        to: toEmail,
+        subject,
+        text,
+        html,
+      });
+      return;
+    } catch (err) {
+      console.warn(`[mailService] SMTP send failed, trying Brevo API fallback: ${err.message}`);
+    }
+  }
+
   if (process.env.BREVO_API_KEY) {
     try {
       const sentViaApi = await sendViaBrevoApi({ toEmail, subject, text, html });
       if (sentViaApi) return;
     } catch (err) {
-      // Brevo API can fail due to authorized IP policies.
-      // If SMTP is configured, continue with SMTP fallback instead of hard-failing OTP.
-      if (!tx) {
-        throw err;
-      }
-      console.warn(`[mailService] Brevo API failed, trying SMTP fallback: ${err.message}`);
+      throw err;
     }
   }
 
@@ -95,14 +105,6 @@ async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel })
     handleMissingSmtpConfig(contextLabel, toEmail, otp);
     return;
   }
-
-  await tx.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@teatalks.local',
-    to: toEmail,
-    subject,
-    text,
-    html,
-  });
 }
 
 async function sendPasswordResetOtp(toEmail, otp) {
