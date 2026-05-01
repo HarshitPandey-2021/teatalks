@@ -25,13 +25,15 @@ function getTransporter() {
 
 function handleMissingSmtpConfig(contextLabel, toEmail, otp) {
   const message = 'Email delivery is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM.';
-  if (process.env.NODE_ENV === 'production') {
+  const allowConsoleFallback = String(process.env.MAIL_ALLOW_CONSOLE_OTP || '').toLowerCase() === 'true';
+  if (!allowConsoleFallback) {
     const err = new Error(message);
     err.code = 'SMTP_NOT_CONFIGURED';
     throw err;
   }
 
   console.warn(`[mailService] ${message}`);
+  console.warn('[mailService] Falling back to console OTP because MAIL_ALLOW_CONSOLE_OTP=true');
   console.log(`${contextLabel} for ${toEmail}: ${otp}`);
 }
 
