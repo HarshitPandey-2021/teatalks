@@ -76,10 +76,21 @@ async function sendViaBrevoApi({ toEmail, subject, text, html }) {
 }
 
 async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel }) {
-  const sentViaApi = await sendViaBrevoApi({ toEmail, subject, text, html });
-  if (sentViaApi) return;
-
   const tx = getTransporter();
+  if (process.env.BREVO_API_KEY) {
+    try {
+      const sentViaApi = await sendViaBrevoApi({ toEmail, subject, text, html });
+      if (sentViaApi) return;
+    } catch (err) {
+      // Brevo API can fail due to authorized IP policies.
+      // If SMTP is configured, continue with SMTP fallback instead of hard-failing OTP.
+      if (!tx) {
+        throw err;
+      }
+      console.warn(`[mailService] Brevo API failed, trying SMTP fallback: ${err.message}`);
+    }
+  }
+
   if (!tx) {
     handleMissingSmtpConfig(contextLabel, toEmail, otp);
     return;
