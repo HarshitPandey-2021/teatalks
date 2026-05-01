@@ -15,6 +15,9 @@ function getTransporter() {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
     secure: Number(process.env.SMTP_PORT) === 465,
+    connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 8000),
+    greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 8000),
+    socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 10000),
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -49,21 +52,37 @@ async function sendViaBrevoApi({ toEmail, subject, text, html }) {
   }
 
   const fromName = process.env.BREVO_SENDER_NAME || 'TeaTalks';
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: {
-      'accept': 'application/json',
-      'content-type': 'application/json',
-      'api-key': apiKey,
-    },
-    body: JSON.stringify({
-      sender: { email: fromEmail, name: fromName },
-      to: [{ email: toEmail }],
-      subject,
-      htmlContent: html,
-      textContent: text,
-    }),
-  });
+  const controller = new AbortController();
+  const apiTimeoutMs = Number(process.env.BREVO_API_TIMEOUT_MS || 8000);
+  const timeoutHandle = setTimeout(() => controller.abort(), apiTimeoutMs);
+  let response;
+  try {
+    response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'api-key': apiKey,
+      },
+      body: JSON.stringify({
+        sender: { email: fromEmail, name: fromName },
+        to: [{ email: toEmail }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      const timeoutError = new Error(`Brevo API request timed out after ${apiTimeoutMs}ms`);
+      timeoutError.code = 'BREVO_API_TIMEOUT';
+      throw timeoutError;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
 
   if (!response.ok) {
     const payload = await response.text();
@@ -78,6 +97,19 @@ async function sendViaBrevoApi({ toEmail, subject, text, html }) {
 async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel }) {
   const tx = getTransporter();
   let smtpError = null;
+  let apiError = null;
+  const preferApi = String(process.env.MAIL_PROVIDER_PRIORITY || 'api').toLowerCase() !== 'smtp';
+
+  if (preferApi && process.env.BREVO_API_KEY) {
+    try {
+      const sentViaApi = await sendViaBrevoApi({ toEmail, subject, text, html });
+      if (sentViaApi) return;
+    } catch (err) {
+      apiError = err;
+      console.warn(`[mailService] Brevo API failed, trying SMTP fallback: ${err.message}`);
+    }
+  }
+
   if (tx) {
     try {
       await tx.sendMail({
@@ -94,20 +126,26 @@ async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel })
     }
   }
 
-  if (process.env.BREVO_API_KEY) {
+  if (!preferApi && process.env.BREVO_API_KEY) {
     try {
       const sentViaApi = await sendViaBrevoApi({ toEmail, subject, text, html });
       if (sentViaApi) return;
     } catch (err) {
-      if (smtpError) {
-        throw new Error(`SMTP and Brevo API delivery both failed. SMTP: ${smtpError.message}. API: ${err.message}`);
-      }
-      throw err;
+      apiError = err;
+      console.warn(`[mailService] Brevo API failed after SMTP attempt: ${err.message}`);
     }
+  }
+
+  if (smtpError && apiError) {
+    throw new Error(`SMTP and Brevo API delivery both failed. SMTP: ${smtpError.message}. API: ${apiError.message}`);
   }
 
   if (smtpError) {
     throw smtpError;
+  }
+
+  if (apiError) {
+    throw apiError;
   }
 
   if (!tx) {
