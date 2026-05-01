@@ -189,6 +189,11 @@ This matches the backend route prefix (`/api/...`). The frontend reads it in `fr
 - `NODE_ENV=production`
 - `MONGO_URI=...`
 - `JWT_SECRET=...`
+- `SMTP_HOST=smtp-relay.brevo.com`
+- `SMTP_PORT=587`
+- `SMTP_USER=<your-brevo-smtp-login>`
+- `SMTP_PASS=<your-brevo-smtp-key>`
+- `SMTP_FROM=<verified-sender@your-domain>`
 
 Optional but recommended:
 

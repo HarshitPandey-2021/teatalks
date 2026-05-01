@@ -23,6 +23,18 @@ function getTransporter() {
   return transporter;
 }
 
+function handleMissingSmtpConfig(contextLabel, toEmail, otp) {
+  const message = 'Email delivery is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM.';
+  if (process.env.NODE_ENV === 'production') {
+    const err = new Error(message);
+    err.code = 'SMTP_NOT_CONFIGURED';
+    throw err;
+  }
+
+  console.warn(`[mailService] ${message}`);
+  console.log(`${contextLabel} for ${toEmail}: ${otp}`);
+}
+
 async function sendPasswordResetOtp(toEmail, otp) {
   const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@teatalks.local';
   const subject = 'TeaTalks Password Reset OTP';
@@ -31,7 +43,7 @@ async function sendPasswordResetOtp(toEmail, otp) {
 
   const tx = getTransporter();
   if (!tx) {
-    console.log(`Password reset OTP for ${toEmail}: ${otp}`);
+    handleMissingSmtpConfig('Password reset OTP', toEmail, otp);
     return;
   }
 
@@ -52,7 +64,7 @@ async function sendRegistrationOtp(toEmail, otp) {
 
   const tx = getTransporter();
   if (!tx) {
-    console.log(`Registration OTP for ${toEmail}: ${otp}`);
+    handleMissingSmtpConfig('Registration OTP', toEmail, otp);
     return;
   }
 
