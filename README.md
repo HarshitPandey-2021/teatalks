@@ -195,6 +195,12 @@ This matches the backend route prefix (`/api/...`). The frontend reads it in `fr
 - `SMTP_PASS=<your-brevo-smtp-key>`
 - `SMTP_FROM=<verified-sender@your-domain>`
 
+Recommended on Render (uses HTTPS instead of SMTP ports):
+
+- `BREVO_API_KEY=<your-brevo-api-key>`
+- `BREVO_SENDER_EMAIL=<verified-sender@your-domain>`
+- `BREVO_SENDER_NAME=TeaTalks`
+
 Optional but recommended:
 
 - `PASSWORD_RESET_PEPPER=...`
