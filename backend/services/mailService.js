@@ -77,6 +77,7 @@ async function sendViaBrevoApi({ toEmail, subject, text, html }) {
 
 async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel }) {
   const tx = getTransporter();
+  let smtpError = null;
   if (tx) {
     try {
       await tx.sendMail({
@@ -88,6 +89,7 @@ async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel })
       });
       return;
     } catch (err) {
+      smtpError = err;
       console.warn(`[mailService] SMTP send failed, trying Brevo API fallback: ${err.message}`);
     }
   }
@@ -97,8 +99,15 @@ async function sendOtpEmail({ toEmail, otp, subject, text, html, contextLabel })
       const sentViaApi = await sendViaBrevoApi({ toEmail, subject, text, html });
       if (sentViaApi) return;
     } catch (err) {
+      if (smtpError) {
+        throw new Error(`SMTP and Brevo API delivery both failed. SMTP: ${smtpError.message}. API: ${err.message}`);
+      }
       throw err;
     }
+  }
+
+  if (smtpError) {
+    throw smtpError;
   }
 
   if (!tx) {
