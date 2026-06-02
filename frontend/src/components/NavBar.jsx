@@ -12,36 +12,101 @@ export default function NavBar() {
     `nav-link ${pathname === path ? "text-pink-500 font-semibold" : ""}`;
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/70 border-b border-gray-200">
+    <nav style={{
+      position: 'sticky',
+      top: 0,
+      zIndex: 50,
+      backdropFilter: 'blur(12px)',
+      backgroundColor: 'rgba(255, 255, 255, 0.7)',
+      borderBottom: '1px solid #e5e7eb'
+    }}>
 
-      {/* ✅ Increased side padding */}
-      <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 flex items-center justify-between h-16">
+      {/* MAIN CONTAINER */}
+      <div style={{
+        maxWidth: '1280px',
+        margin: '0 auto',
+        padding: '0 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        height: '64px'
+      }}>
 
         {/* LOGO */}
-        <div className="flex items-center gap-2 pl-2 text-xl font-bold text-gray-800">
-          <span className="text-2xl">☕</span>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '20px',
+          fontWeight: 'bold',
+          color: '#1f2937',
+          paddingLeft: '8px'
+        }}>
+          <span style={{ fontSize: '24px' }}>☕</span>
           <span>TeaTalks</span>
         </div>
 
-        {/* DESKTOP */}
-        <div className="hidden md:flex items-center gap-8">
+        {/* DESKTOP MENU */}
+        <div style={{
+          display: 'none',
+          alignItems: 'center',
+          gap: '32px'
+        }} className="desktop-nav">
 
-          <Link href="/" className={linkClass("/")}>Home</Link>
-          <Link href="/about" className={linkClass("/about")}>About</Link>
-          <Link href="/privacy" className={linkClass("/privacy")}>Privacy</Link>
-          <Link href="/terms" className={linkClass("/terms")}>Terms</Link>
+          <Link href="/" className={linkClass("/")} style={{ textDecoration: 'none', color: pathname === '/' ? '#ec4899' : '#374151', fontWeight: pathname === '/' ? '600' : '500' }}>
+            Home
+          </Link>
+          <Link href="/about" className={linkClass("/about")} style={{ textDecoration: 'none', color: pathname === '/about' ? '#ec4899' : '#374151', fontWeight: pathname === '/about' ? '600' : '500' }}>
+            About
+          </Link>
+          <Link href="/privacy" className={linkClass("/privacy")} style={{ textDecoration: 'none', color: pathname === '/privacy' ? '#ec4899' : '#374151', fontWeight: pathname === '/privacy' ? '600' : '500' }}>
+            Privacy
+          </Link>
+          <Link href="/terms" className={linkClass("/terms")} style={{ textDecoration: 'none', color: pathname === '/terms' ? '#ec4899' : '#374151', fontWeight: pathname === '/terms' ? '600' : '500' }}>
+            Terms
+          </Link>
 
-          <div className="flex items-center gap-3 ml-2">
+          {/* BUTTON GROUP - EXTRA SPACING */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginLeft: '24px'
+          }}>
             <Link href="/login">
-              <button className="h-10 px-6 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-100 transition">
+              <button style={{
+                height: '40px',
+                padding: '0 28px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                fontSize: '14px',
+                fontWeight: '500',
+                backgroundColor: 'white',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f3f4f6'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}>
                 Log In
               </button>
             </Link>
 
             <Link href="/signup">
-              <button className="h-10 px-7 rounded-lg text-sm font-semibold text-white 
-                bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400 
-                shadow-md hover:scale-105 transition">
+              <button style={{
+                height: '40px',
+                padding: '0 32px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: 'white',
+                background: 'linear-gradient(to right, #ec4899, #fb923c, #fbbf24)',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}>
                 Sign Up
               </button>
             </Link>
@@ -49,10 +114,16 @@ export default function NavBar() {
 
         </div>
 
-        {/* ✅ FIXED HAMBURGER SPACING */}
-        <div className="md:hidden pr-3">
+        {/* HAMBURGER */}
+        <div style={{ paddingRight: '8px' }} className="mobile-hamburger">
           <button
-            className="text-2xl"
+            style={{
+              fontSize: '28px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px'
+            }}
             onClick={() => setOpen(!open)}
           >
             ☰
@@ -62,28 +133,64 @@ export default function NavBar() {
       </div>
 
       {/* MOBILE MENU */}
-      <div
-        className={`md:hidden transition-all duration-300 overflow-hidden ${
-          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <div className="px-6 pb-6 pt-2 flex flex-col gap-4 bg-white/90 backdrop-blur-md">
+      <div style={{
+        maxHeight: open ? '400px' : '0',
+        opacity: open ? '1' : '0',
+        overflow: 'hidden',
+        transition: 'all 0.3s ease'
+      }} className="mobile-menu">
+        <div style={{
+          padding: '16px 28px 24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(12px)'
+        }}>
 
-          <Link href="/" onClick={() => setOpen(false)} className={linkClass("/")}>Home</Link>
-          <Link href="/about" onClick={() => setOpen(false)} className={linkClass("/about")}>About</Link>
-          <Link href="/privacy" onClick={() => setOpen(false)} className={linkClass("/privacy")}>Privacy</Link>
-          <Link href="/terms" onClick={() => setOpen(false)} className={linkClass("/terms")}>Terms</Link>
+          <Link href="/" onClick={() => setOpen(false)} style={{ textDecoration: 'none', color: pathname === '/' ? '#ec4899' : '#374151', fontWeight: pathname === '/' ? '600' : '500', padding: '4px 0' }}>
+            Home
+          </Link>
+          <Link href="/about" onClick={() => setOpen(false)} style={{ textDecoration: 'none', color: pathname === '/about' ? '#ec4899' : '#374151', fontWeight: pathname === '/about' ? '600' : '500', padding: '4px 0' }}>
+            About
+          </Link>
+          <Link href="/privacy" onClick={() => setOpen(false)} style={{ textDecoration: 'none', color: pathname === '/privacy' ? '#ec4899' : '#374151', fontWeight: pathname === '/privacy' ? '600' : '500', padding: '4px 0' }}>
+            Privacy
+          </Link>
+          <Link href="/terms" onClick={() => setOpen(false)} style={{ textDecoration: 'none', color: pathname === '/terms' ? '#ec4899' : '#374151', fontWeight: pathname === '/terms' ? '600' : '500', padding: '4px 0' }}>
+            Terms
+          </Link>
 
-          <div className="flex flex-col gap-3 mt-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
             <Link href="/login" onClick={() => setOpen(false)}>
-              <button className="w-full h-11 px-6 rounded-lg border border-gray-300">
+              <button style={{
+                width: '100%',
+                height: '44px',
+                padding: '0 24px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                fontSize: '15px',
+                fontWeight: '500',
+                backgroundColor: 'white',
+                cursor: 'pointer'
+              }}>
                 Log In
               </button>
             </Link>
 
             <Link href="/signup" onClick={() => setOpen(false)}>
-              <button className="w-full h-11 px-7 rounded-lg text-white 
-                bg-gradient-to-r from-pink-500 via-orange-400 to-yellow-400">
+              <button style={{
+                width: '100%',
+                height: '44px',
+                padding: '0 24px',
+                borderRadius: '8px',
+                border: 'none',
+                fontSize: '15px',
+                fontWeight: '600',
+                color: 'white',
+                background: 'linear-gradient(to right, #ec4899, #fb923c, #fbbf24)',
+                cursor: 'pointer'
+              }}>
                 Sign Up
               </button>
             </Link>

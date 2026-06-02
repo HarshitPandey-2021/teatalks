@@ -6,11 +6,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import PostCard from '@/components/PostCard'
+import { Suspense } from "react";
 import api from '@/lib/axios'
 
 const DEFAULT_TRENDING_TAGS = ['#DBMS', '#MessFood', '#WiFi', '#CampusVibes', '#HostelLife', '#Exams']
 
-export default function SearchPage() {
+function SearchComponent() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -239,4 +240,12 @@ export default function SearchPage() {
       </main>
     </div>
   )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SearchComponent />
+    </Suspense>
+  );
 }

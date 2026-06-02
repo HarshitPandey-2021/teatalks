@@ -803,3 +803,34 @@ pointer-events:none;
   font-size: 0.95rem;
   line-height: 1.75;
 }
+
+
+
+/* ========== NAVBAR RESPONSIVE FIX ========== */
+
+.desktop-nav {
+  display: none !important;
+}
+
+.mobile-hamburger {
+  display: block !important;
+}
+
+@media (min-width: 768px) {
+  .desktop-nav {
+    display: flex !important;
+  }
+  
+  .mobile-hamburger {
+    display: none !important;
+  }
+  
+  .mobile-menu {
+    display: none !important;
+  }
+}
+
+/* Override any conflicting navbar styles */
+nav .navbar {
+  padding: 0 !important;
+}

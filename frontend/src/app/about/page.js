@@ -134,7 +134,7 @@ export default function About() {
                 fontWeight: "700",
                 transition: "0.3s",
               }}>
-                Shakti Ishan — Role
+                Shakti Ishan - Frontend designer
               </li>
 
               {/* SOMESH */}
@@ -148,7 +148,7 @@ export default function About() {
                 fontWeight: "700",
                 transition: "0.3s",
               }}>
-                Somesh Pandey — Role
+                Somesh Pandey - Backned Developer
               </li>
 
               {/* SHIVA */}
@@ -162,7 +162,8 @@ export default function About() {
                 fontWeight: "700",
                 transition: "0.3s",
               }}>
-                Shiva Singh — Role
+                Shiva Singh -  
+                AI Integration + Testing
               </li>
 
               {/* HARSHIT */}
@@ -178,7 +179,7 @@ export default function About() {
                 margin: "0 auto",
                 transition: "0.3s",
               }}>
-                Harshit Pandey — Role
+                Harshit Pandey - Frontend Developer
               </li>
 
             </ul>
