@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -42,8 +43,15 @@ export default function NavBar() {
           color: '#1f2937',
           paddingLeft: '8px'
         }}>
-          <span style={{ fontSize: '24px' }}>☕</span>
-          <span>TeaTalks</span>
+     <Image
+  src="/icon.png"
+  alt="TeaTalks"
+  width={64}
+  height={64}
+  priority
+   className="h-13 w-auto object-contain rounded-lg"
+/>
+<span>TeaTalks</span>
         </div>
 
         {/* DESKTOP MENU */}
