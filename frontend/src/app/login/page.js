@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
@@ -57,7 +57,15 @@ const STATS = [
   { value: '3.2k', label: 'reactions today' },
 ]
 
-export default function LoginPage() {
+function sanitizeRedirectPath(path) {
+  if (!path || typeof path !== 'string') return null
+  const trimmed = path.trim()
+  if (!trimmed.startsWith('/admin')) return null
+  if (trimmed.startsWith('//') || trimmed.includes('://')) return null
+  return trimmed
+}
+
+function LoginPageContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
@@ -76,16 +84,22 @@ export default function LoginPage() {
 
   const { login, user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectPath = sanitizeRedirectPath(searchParams.get('redirect'))
 
   useEffect(() => {
-  document.title = "Login | TeaTalks"
-}, [])
+    document.title = "Login | TeaTalks"
+  }, [])
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      router.push(user?.role === 'admin' ? '/admin' : '/feed')
+      if (user?.role === 'admin' && redirectPath) {
+        router.push(redirectPath)
+      } else {
+        router.push(user?.role === 'admin' ? '/admin' : '/feed')
+      }
     }
-  }, [authLoading, isAuthenticated, user, router])
+  }, [authLoading, isAuthenticated, user, router, redirectPath])
 
   useEffect(() => {
     const t = setInterval(() => setNewCount((n) => n + 1), 8000)
@@ -115,7 +129,7 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      await login(trimmed, password)
+      await login(trimmed, password, { redirect: redirectPath })
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.')
       setLoading(false)
@@ -307,7 +321,7 @@ export default function LoginPage() {
   }
 }
        .tt-ticker-card {
-  position: relative; /* changed from absolute */
+  position: relative;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -316,19 +330,18 @@ export default function LoginPage() {
   flex-direction: column;
   gap: 0.25rem;
   overflow: hidden;
-  margin-bottom: 0.75rem; /* spacing between stacked cards */
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05); /* subtle shadow for depth */
-  width: 100%; /* full width for responsiveness */
+  margin-bottom: 0.75rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  width: 100%;
   z-index: 0;
 }
 
-/* Top section with avatar, handle, tag, time */
 .tt-ticker-top {
   display: flex;
   align-items: center;
   gap: 0.375rem;
   flex-shrink: 0;
-  flex-wrap: wrap; /* allow items to wrap on small screens */
+  flex-wrap: wrap;
 }
 
 .tt-ticker-avatar {
@@ -359,7 +372,6 @@ export default function LoginPage() {
   flex-shrink: 0;
 }
 
-/* Main text section */
 .tt-ticker-text {
   font-size: 0.75rem;
   line-height: 1.4;
@@ -368,10 +380,9 @@ export default function LoginPage() {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  word-break: break-word; /* prevent overflow on mobile */
+  word-break: break-word;
 }
 
-/* Optional blur overlay */
 .tt-ticker-blur {
   filter: blur(4px);
    opacity: 0.85;
@@ -380,18 +391,17 @@ export default function LoginPage() {
 
 .tt-ticker-overlay {
   position: absolute;
-  inset: 0; /* top/right/bottom/left all 0 */
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2;
-  font-size: 0.6rem; /* slightly bigger for readability */
-  color: rgba(190, 24, 93, 0.55); /* keep subtle pink */
+  font-size: 0.6rem;
+  color: rgba(190, 24, 93, 0.55);
   pointer-events: none;
   margin-top:0.7rem;
 }
 
-/* Mobile responsiveness */
 @media (max-width: 480px) {
   .tt-ticker-card {
     padding: 0.5rem 0.625rem;
@@ -403,10 +413,9 @@ export default function LoginPage() {
   }
 
   .tt-ticker-text {
-    -webkit-line-clamp: 3; /* allow slightly more text on small screens */
+    -webkit-line-clamp: 3;
   }
 }
-        /* HEADLINE */
         .tt-headline {
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 1.5rem;
@@ -562,7 +571,6 @@ export default function LoginPage() {
         }
         .tt-bottom a:hover { text-decoration: underline; }
 
-        /* RIGHT PANEL */
         .tt-right {
           display: none;
           flex-direction: column;
@@ -757,7 +765,6 @@ export default function LoginPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
           >
-            {/* MOBILE TICKER */}
             <div className="tt-ticker">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -854,7 +861,6 @@ export default function LoginPage() {
           </motion.div>
         </div>
 
-        {/* RIGHT — DESKTOP */}
         <div className="tt-right">
           <div className="tt-right-header">
             <p className="tt-right-title">While you were away…</p>
@@ -968,5 +974,13 @@ export default function LoginPage() {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   )
 }

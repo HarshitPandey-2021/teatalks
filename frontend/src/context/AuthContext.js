@@ -1,5 +1,20 @@
 'use client'
 
+/*
+  =============================================================================
+  DEPLOY NOTE (Admin email login redirect) — share with frontend / Vercel deploy
+  =============================================================================
+  Why: Admin alert emails link to /login?redirect=/admin/flagged. After login,
+  admin must land on the moderation queue, not the default dashboard.
+
+  Changes in this file:
+  1. ADD sanitizeRedirectPath() helper (below, before AuthProvider)
+  2. UPDATE login() to accept optional options.redirect and route admin there
+
+  After merging: push to repo → Vercel redeploys frontend automatically.
+  =============================================================================
+*/
+
 import { createContext, useContext, useMemo, useCallback, useSyncExternalStore } from 'react'
 import { useRouter } from 'next/navigation'
 import api from '@/lib/axios'
@@ -76,6 +91,16 @@ function getServerReadySnapshot() {
   return false
 }
 
+// --- NEW (admin email redirect): add this helper ---
+// Only allows safe internal admin paths, e.g. /admin/flagged from ?redirect= query
+function sanitizeRedirectPath(path) {
+  if (!path || typeof path !== 'string') return null;
+  const trimmed = path.trim();
+  if (!trimmed.startsWith('/admin')) return null;
+  if (trimmed.startsWith('//') || trimmed.includes('://')) return null;
+  return trimmed;
+}
+
 export function AuthProvider({ children }) {
   const isClient = useSyncExternalStore(
     subscribeToClientReady,
@@ -108,12 +133,29 @@ export function AuthProvider({ children }) {
     return nextUser || null
   }, [])
 
-  const login = useCallback(async (email, password) => {
+  // --- UPDATED login(): admin email redirect support ---
+  // OLD:
+  // const login = useCallback(async (email, password) => {
+  //   const res = await api.post('/users/login', { email, password })
+  //   const { token, user } = res.data
+  //   persistSession(token, user)
+  //   router.push(user.role === 'admin' ? '/admin' : '/feed')
+  //   return user
+  // }, [persistSession, router])
+  //
+  // NEW: third arg options.redirect — if admin came from email link, go to /admin/flagged
+  const login = useCallback(async (email, password, options = {}) => {
     const res = await api.post('/users/login', { email, password })
     const { token, user } = res.data
 
     persistSession(token, user)
-    router.push(user.role === 'admin' ? '/admin' : '/feed')
+
+    const redirectPath = sanitizeRedirectPath(options.redirect)
+    if (user.role === 'admin' && redirectPath) {
+      router.push(redirectPath)
+    } else {
+      router.push(user.role === 'admin' ? '/admin' : '/feed')
+    }
     return user
   }, [persistSession, router])
 
