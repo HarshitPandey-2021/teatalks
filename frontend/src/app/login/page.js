@@ -91,6 +91,15 @@ function LoginPageContent() {
     document.title = "Login | TeaTalks"
   }, [])
 
+  // --- UPDATED: if already logged in, honor redirect for admin ---
+  // OLD:
+  // useEffect(() => {
+  //   if (!authLoading && isAuthenticated) {
+  //     router.push(user?.role === 'admin' ? '/admin' : '/feed')
+  //   }
+  // }, [authLoading, isAuthenticated, user, router])
+  //
+  // NEW:
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       if (user?.role === 'admin' && redirectPath) {

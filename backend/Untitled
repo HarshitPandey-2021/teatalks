@@ -1,0 +1,2 @@
+# Optional: set true only for local debugging to print OTP in console if SMTP is missing
+MAIL_ALLOW_CONSOLE_OTP=false

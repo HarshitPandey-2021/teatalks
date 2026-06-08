@@ -78,6 +78,9 @@ exports.createReport = async (req, res) => {
         reportId: report._id,
         targetId,
         targetType,
+        reason: trimMessage(reason, 200),
+        reportCount: updatedTarget?.reports,
+        autoHidden,
       },
     });
 

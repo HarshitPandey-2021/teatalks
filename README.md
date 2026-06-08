@@ -189,6 +189,22 @@ This matches the backend route prefix (`/api/...`). The frontend reads it in `fr
 - `NODE_ENV=production`
 - `MONGO_URI=...`
 - `JWT_SECRET=...`
+- `SMTP_HOST=smtp-relay.brevo.com`
+- `SMTP_PORT=587`
+- `SMTP_USER=<your-brevo-smtp-login>`
+- `SMTP_PASS=<your-brevo-smtp-key>`
+- `SMTP_FROM=<verified-sender@your-domain>`
+
+Recommended on Render (uses HTTPS instead of SMTP ports):
+
+- `BREVO_API_KEY=<your-brevo-api-key>`
+- `BREVO_SENDER_EMAIL=<verified-sender@your-domain>`
+- `BREVO_SENDER_NAME=TeaTalks`
+
+Admin moderation email alerts (report approval links):
+
+- `FRONTEND_URL=https://teatalks-six.vercel.app` — **required** so admin emails link to your live site, not localhost
+- `ADMIN_NOTIFICATION_EMAIL=<admin-inbox@gmail.com>`
 
 Optional but recommended:
 
