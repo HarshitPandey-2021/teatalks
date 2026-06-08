@@ -201,6 +201,11 @@ Recommended on Render (uses HTTPS instead of SMTP ports):
 - `BREVO_SENDER_EMAIL=<verified-sender@your-domain>`
 - `BREVO_SENDER_NAME=TeaTalks`
 
+Admin moderation email alerts (report approval links):
+
+- `FRONTEND_URL=https://teatalks-six.vercel.app` — **required** so admin emails link to your live site, not localhost
+- `ADMIN_NOTIFICATION_EMAIL=<admin-inbox@gmail.com>`
+
 Optional but recommended:
 
 - `PASSWORD_RESET_PEPPER=...`

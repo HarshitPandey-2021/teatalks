@@ -103,9 +103,42 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
+const DEFAULT_PRODUCTION_FRONTEND_URL = 'https://teatalks-six.vercel.app';
+const DEFAULT_LOCAL_FRONTEND_URL = 'http://localhost:3000';
+
+function parseAllowedFrontendOrigins() {
+  const raw = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return raw.length ? raw : [DEFAULT_PRODUCTION_FRONTEND_URL, DEFAULT_LOCAL_FRONTEND_URL];
+}
+
 function getFrontendBaseUrl() {
-  const url = process.env.FRONTEND_URL || process.env.APP_URL || 'http://localhost:3000';
-  return url.replace(/\/$/, '');
+  const explicit = (process.env.FRONTEND_URL || process.env.APP_URL || '').trim();
+  if (explicit) {
+    const url = explicit.replace(/\/$/, '');
+    if (process.env.NODE_ENV === 'production' && /localhost|127\.0\.0\.1/i.test(url)) {
+      console.warn(
+        `[mailService] FRONTEND_URL is "${url}" in production. Admin email links will be wrong. Set FRONTEND_URL=${DEFAULT_PRODUCTION_FRONTEND_URL}`
+      );
+    }
+    return url;
+  }
+
+  const productionOrigin = parseAllowedFrontendOrigins().find(
+    (origin) => origin.startsWith('https://') && !/localhost|127\.0\.0\.1/i.test(origin)
+  );
+  if (productionOrigin) {
+    return productionOrigin.replace(/\/$/, '');
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return DEFAULT_PRODUCTION_FRONTEND_URL;
+  }
+
+  return DEFAULT_LOCAL_FRONTEND_URL;
 }
 
 function buildAdminLoginUrl(href = '/admin/flagged') {
