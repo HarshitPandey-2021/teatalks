@@ -1,8 +1,28 @@
 'use client'
 
+/*
+  =============================================================================
+  DEPLOY NOTE (Admin email login redirect) — share with frontend / Vercel deploy
+  =============================================================================
+  Why: Backend admin emails send links like /login?redirect=/admin/flagged.
+  This page reads that query param and passes it into login() after sign-in.
+
+  Changes in this file:
+  1. Import useSearchParams from next/navigation
+  2. ADD sanitizeRedirectPath() helper
+  3. Read ?redirect= from URL (searchParams)
+  4. UPDATE auth redirect useEffect (already logged in → go to redirect)
+  5. UPDATE submit handler: login(email, password, { redirect: redirectPath })
+
+  After merging: push to repo → Vercel redeploys frontend automatically.
+  =============================================================================
+*/
+
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+// OLD: import { useRouter } from 'next/navigation'
+// NEW: also import useSearchParams to read ?redirect= from admin email links
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
@@ -57,6 +77,15 @@ const STATS = [
   { value: '3.2k', label: 'reactions today' },
 ]
 
+// --- NEW (admin email redirect): add this helper (same logic as AuthContext.js) ---
+function sanitizeRedirectPath(path) {
+  if (!path || typeof path !== 'string') return null
+  const trimmed = path.trim()
+  if (!trimmed.startsWith('/admin')) return null
+  if (trimmed.startsWith('//') || trimmed.includes('://')) return null
+  return trimmed
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -76,16 +105,32 @@ export default function LoginPage() {
 
   const { login, user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
+  // --- NEW: read ?redirect=/admin/flagged from admin alert email link ---
+  const searchParams = useSearchParams()
+  const redirectPath = sanitizeRedirectPath(searchParams.get('redirect'))
 
   useEffect(() => {
   document.title = "Login | TeaTalks"
 }, [])
 
+  // --- UPDATED: if already logged in, honor redirect for admin ---
+  // OLD:
+  // useEffect(() => {
+  //   if (!authLoading && isAuthenticated) {
+  //     router.push(user?.role === 'admin' ? '/admin' : '/feed')
+  //   }
+  // }, [authLoading, isAuthenticated, user, router])
+  //
+  // NEW:
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      router.push(user?.role === 'admin' ? '/admin' : '/feed')
+      if (user?.role === 'admin' && redirectPath) {
+        router.push(redirectPath)
+      } else {
+        router.push(user?.role === 'admin' ? '/admin' : '/feed')
+      }
     }
-  }, [authLoading, isAuthenticated, user, router])
+  }, [authLoading, isAuthenticated, user, router, redirectPath])
 
   useEffect(() => {
     const t = setInterval(() => setNewCount((n) => n + 1), 8000)
@@ -115,7 +160,9 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      await login(trimmed, password)
+      // OLD: await login(trimmed, password)
+      // NEW: pass redirect so admin lands on /admin/flagged after email link login
+      await login(trimmed, password, { redirect: redirectPath })
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.')
       setLoading(false)
