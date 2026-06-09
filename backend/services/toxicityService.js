@@ -245,6 +245,13 @@ const positiveWords = [
   "helping", "support", "care", "friend", "madad", "dost"
 ];
 
+const negativeWords = [
+  "bad", "worst", "terrible", "awful", "poor", "useless", "hate", "hated", "disgust", "nasty",
+  "boring", "sad", "angry", "annoying", "unfair", "fool", "trash", "weak", "ridiculous", "pathetic",
+  "sucks", "problem", "mistake", "failure", "stupid", "idiot", "dumb", "chutiya", "pagal",
+  "ghatiya", "bekaar", "faltu", "nikamma", "bewakoof", "gadha", "bakwas", "behooda"
+];
+
 // Negation words
 const negationPatterns = [
   /\bnot\b/i, /\bnever\b/i, /\bno\b/i, /\bneither\b/i, /\bnor\b/i, /\bnone\b/i, /\bnothing\b/i,
@@ -324,6 +331,38 @@ function hasPositiveContext(text) {
   });
   
   return positiveWordCount >= 2;
+}
+
+function computeSentiment(text) {
+  const cleanText = normalizeClean(text);
+  let positiveCount = 0;
+  let negativeCount = 0;
+
+  positiveWords.forEach(word => {
+    try {
+      const regex = new RegExp(`\\b${escapeRegex(word)}\\b`, 'gi');
+      if (regex.test(cleanText)) positiveCount += (cleanText.match(regex) || []).length;
+    } catch (e) {}
+  });
+
+  negativeWords.forEach(word => {
+    try {
+      const regex = new RegExp(`\\b${escapeRegex(word)}\\b`, 'gi');
+      if (regex.test(cleanText)) negativeCount += (cleanText.match(regex) || []).length;
+    } catch (e) {}
+  });
+
+  const total = positiveCount + negativeCount;
+  const rawScore = total === 0 ? 0 : (positiveCount - negativeCount) / total;
+  const sentimentScore = parseFloat(((rawScore + 1) / 2).toFixed(2));
+  const sentimentLabel = sentimentScore >= 0.66 ? 'positive' : sentimentScore <= 0.33 ? 'negative' : 'neutral';
+
+  return {
+    sentimentScore,
+    sentimentLabel,
+    positiveCount,
+    negativeCount,
+  };
 }
 
 // ===== SCORING FUNCTIONS =====
@@ -894,6 +933,13 @@ async function detectToxicity(text) {
     ...aiSuggestions
   ].filter((value, index, array) => array.indexOf(value) === index);
 
+  const sentiment = computeSentiment(text);
+  if (!isToxic) {
+    console.info(
+      `[Moderation] Non-toxic sentiment=${sentiment.sentimentLabel} score=${sentiment.sentimentScore} aiScore=${aiScore.toFixed(2)} localScore=${localScore.toFixed(2)} text="${text.slice(0, 120).replace(/\n/g, ' ')}${text.length > 120 ? '...' : ''}"`
+    );
+  }
+
   return {
     original: text,
     normalized: cleanNormalized,
@@ -902,6 +948,8 @@ async function detectToxicity(text) {
     score: parseFloat(finalScore.toFixed(2)),
     aiScore: parseFloat(aiScore.toFixed(2)),
     localScore: parseFloat(localScore.toFixed(2)),
+    sentimentScore: sentiment.sentimentScore,
+    sentimentLabel: sentiment.sentimentLabel,
     isPositiveContext,
     hasHiddenAbuse, 
     // breakdown: {
