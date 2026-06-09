@@ -1,11 +1,23 @@
+// Ensure fetch is available (polyfill if needed) before other modules
+try { require('./config/fetch-polyfill'); } catch (e) { /* ignored */ }
+
 const express = require('express');
 const dotenv = require('dotenv');
+const dns = require('dns');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { initCloudinary } = require('./config/cloudinary');
+
+// Force a DNS resolver that supports SRV lookups for MongoDB Atlas.
+// This avoids local DNS proxies that may refuse querySrv requests.
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch (err) {
+  console.warn('Unable to set custom DNS servers:', err.message);
+}
 
 dotenv.config();
 connectDB();

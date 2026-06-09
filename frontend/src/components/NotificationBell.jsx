@@ -20,6 +20,7 @@ export default function NotificationBell({ panelStyle, dropdownAlign = 'right' }
   const { isAuthenticated, user } = useAuth()
   const router = useRouter()
   const dropdownRef = useRef(null)
+  const [isMobile, setIsMobile] = useState(false)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState([])
@@ -57,6 +58,20 @@ export default function NotificationBell({ panelStyle, dropdownAlign = 'right' }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [open])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const handle = () => setIsMobile(mq.matches)
+    handle()
+    if (mq.addEventListener) mq.addEventListener('change', handle)
+    else mq.addListener(handle)
+    window.addEventListener('resize', handle)
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', handle)
+      else mq.removeListener(handle)
+      window.removeEventListener('resize', handle)
+    }
+  }, [])
 
   const hasUnread = unreadCount > 0
   const positionStyle = useMemo(() => (
@@ -132,17 +147,19 @@ export default function NotificationBell({ panelStyle, dropdownAlign = 'right' }
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             style={{
-              position: 'absolute',
-              top: '3rem',
-              width: 340,
-              maxWidth: 'calc(100vw - 2rem)',
+              position: isMobile ? 'fixed' : 'absolute',
+              top: isMobile ? '4.25rem' : '3rem',
+              left: isMobile ? '50%' : undefined,
+              transform: isMobile ? 'translateX(-50%)' : undefined,
+              width: isMobile ? 'calc(100vw - 1.5rem)' : 340,
+              maxWidth: isMobile ? 'calc(100vw - 1rem)' : 'calc(100vw - 2rem)',
               background: '#fff',
               border: '1px solid rgba(234,225,213,0.35)',
               borderRadius: 12,
               boxShadow: '0 12px 30px rgba(50,46,40,0.12)',
               zIndex: 120,
               padding: '0.5rem 0.5rem 0.25rem',
-              ...positionStyle,
+              ...(isMobile ? {} : positionStyle),
               ...panelStyle,
             }}
           >

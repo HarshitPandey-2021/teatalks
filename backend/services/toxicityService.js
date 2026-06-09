@@ -1,3 +1,5 @@
+const { getGorkToxicityScore } = require('./gorkClient');
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -709,24 +711,14 @@ function extractAssistantContent(responseBody) {
 }
 
 async function getAiToxicityScore(text) {
-  const apiKey = getEnvValue("FEATHERLESS_API_KEY", "FETHERLESS_API_KEY");
-  if (!apiKey) {
-    const err = new Error("Featherless API key is missing. Set FEATHERLESS_API_KEY in backend/.env.");
-    err.code = "FEATHERLESS_CONFIG_MISSING";
-    throw err;
-  }
-
   if (typeof fetch !== "function") {
     const err = new Error("This Node.js runtime does not provide fetch. Use Node.js 18 or newer.");
     err.code = "FETCH_UNAVAILABLE";
     throw err;
   }
 
-  const apiUrl = getEnvValue("FEATHERLESS_URL", "FETHERLESS_URL") || "https://api.featherless.ai/v1/chat/completions";
-  const model = getEnvValue("FEATHERLESS_MODEL", "FETHERLESS_MODEL") || "deepseek-ai/DeepSeek-V3.2";
-  const timeoutMs = Number(getEnvValue("FEATHERLESS_TIMEOUT_MS", "FETHERLESS_TIMEOUT_MS")) || 15000;
-  const appReferer = getEnvValue("FEATHERLESS_HTTP_REFERER", "APP_URL", "NEXT_PUBLIC_APP_URL");
-  const appTitle = getEnvValue("FEATHERLESS_APP_TITLE", "APP_NAME") || "TeaTalks";
+  const timeoutMs = Number(getEnvValue("PURGOMALUM_TIMEOUT_MS", "TIMEOUT_MS")) || 15000;
+  const apiUrl = `https://www.purgomalum.com/service/json?text=${encodeURIComponent(text)}`;
 
   const response = await withBackoff(async () => {
     const controller = new AbortController();
@@ -735,34 +727,16 @@ async function getAiToxicityScore(text) {
     let res;
     try {
       res = await fetch(apiUrl, {
-        method: "POST",
+        method: "GET",
         headers: {
-          "Authorization": `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-          ...(appReferer ? { "HTTP-Referer": appReferer } : {}),
-          ...(appTitle ? { "X-Title": appTitle } : {})
+          "Accept": "application/json"
         },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: "system",
-              content: "You are an expert moderation assistant that detects toxicity in user-generated content and responds with strict JSON only."
-            },
-            {
-              role: "user",
-              content: buildToxicityPrompt(text)
-            }
-          ],
-          temperature: 0.3,
-          max_tokens: 300
-        }),
         signal: controller.signal
       });
     } catch (error) {
       if (error?.name === "AbortError") {
-        const err = new Error(`Featherless API timed out after ${timeoutMs}ms`);
-        err.code = "FEATHERLESS_TIMEOUT";
+        const err = new Error(`Purgomalum API timed out after ${timeoutMs}ms`);
+        err.code = "PURGOMALUM_TIMEOUT";
         throw err;
       }
       throw error;
@@ -772,7 +746,7 @@ async function getAiToxicityScore(text) {
 
     if (!res.ok) {
       const errorBody = await res.text().catch(() => "");
-      const err = new Error(`Featherless API error: ${res.status}`);
+      const err = new Error(`Purgomalum API error: ${res.status}`);
       err.status = res.status;
       err.details = errorBody;
       throw err;
@@ -781,16 +755,21 @@ async function getAiToxicityScore(text) {
     return res.json();
   }, { retries: 1, baseDelayMs: 250 });
 
-  const content = extractAssistantContent(response);
-  const parsed = parseAiToxicityResponse(content);
+  const result = typeof response?.result === "string" ? response.result.trim() : "";
+  const original = String(text).trim();
+  const hasProfanity = result && result !== original;
 
-  if (!parsed) {
-    const err = new Error("Featherless returned an invalid moderation response");
-    err.details = content;
-    throw err;
-  }
+  const aiScore = hasProfanity ? 0.9 : 0.0;
+  const aiIsToxic = hasProfanity;
+  const aiReasons = hasProfanity ? ["Profanity detected by external moderation API"] : [];
+  const aiSuggestions = hasProfanity ? ["Remove offensive language to lower the AI toxicity score."] : [];
 
-  return parsed;
+  return {
+    toxicity: aiScore,
+    isToxic: aiIsToxic,
+    reasons: aiReasons,
+    suggestions: aiSuggestions
+  };
 }
 
 // ===== MAIN FUNCTION =====
@@ -875,7 +854,14 @@ async function detectToxicity(text) {
   let aiSuggestions = [];
 
   try {
-    const aiResponse = await getAiToxicityScore(text);
+    let aiResponse;
+    const provider = (process.env.MODERATION_PROVIDER || '').toLowerCase();
+    if (provider === 'gork' || provider === 'gorq' || provider === 'gorqapi') {
+      aiResponse = await getGorkToxicityScore(text);
+    } else {
+      aiResponse = await getAiToxicityScore(text);
+    }
+
     aiScore = aiResponse.toxicity;
     aiIsToxic = aiResponse.isToxic;
     aiReasons = aiResponse.reasons;
