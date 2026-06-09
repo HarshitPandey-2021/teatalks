@@ -59,20 +59,29 @@ async function emailAdminsAboutAlert(admins, payload = {}) {
 
 async function notifyAdmins(payload = {}) {
   const admins = await User.find({ role: 'admin' }).select('_id email');
-  if (!admins.length) return [];
+  const hasNotificationEmail = Boolean(String(process.env.ADMIN_NOTIFICATION_EMAIL || '').trim());
 
-  const notifications = await Promise.all(
-    admins.map((admin) =>
-      createNotification({
-        ...payload,
-        recipientId: admin._id,
-      })
-    )
-  );
+  if (!admins.length && !hasNotificationEmail) {
+    console.warn('[notificationService] No admin users or ADMIN_NOTIFICATION_EMAIL configured');
+    return [];
+  }
 
-  emailAdminsAboutAlert(admins, payload).catch((err) => {
+  const notifications = admins.length
+    ? await Promise.all(
+        admins.map((admin) =>
+          createNotification({
+            ...payload,
+            recipientId: admin._id,
+          })
+        )
+      )
+    : [];
+
+  try {
+    await emailAdminsAboutAlert(admins, payload);
+  } catch (err) {
     console.warn(`[notificationService] Admin email alert failed: ${err.message}`);
-  });
+  }
 
   return notifications;
 }
