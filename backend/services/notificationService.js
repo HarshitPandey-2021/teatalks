@@ -24,8 +24,16 @@ async function createNotification(payload = {}) {
   });
 }
 
+function getAdminNotificationEmail() {
+  return String(
+    process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFICATION_EMAI || ''
+  )
+    .trim()
+    .toLowerCase();
+}
+
 function resolveAdminAlertRecipients(admins = []) {
-  const overrideEmail = String(process.env.ADMIN_NOTIFICATION_EMAIL || '').trim().toLowerCase();
+  const overrideEmail = getAdminNotificationEmail();
   if (overrideEmail) {
     return [overrideEmail];
   }
@@ -59,7 +67,7 @@ async function emailAdminsAboutAlert(admins, payload = {}) {
 
 async function notifyAdmins(payload = {}) {
   const admins = await User.find({ role: 'admin' }).select('_id email');
-  const hasNotificationEmail = Boolean(String(process.env.ADMIN_NOTIFICATION_EMAIL || '').trim());
+  const hasNotificationEmail = Boolean(getAdminNotificationEmail());
 
   if (!admins.length && !hasNotificationEmail) {
     console.warn('[notificationService] No admin users or ADMIN_NOTIFICATION_EMAIL configured');
